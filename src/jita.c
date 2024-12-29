@@ -221,14 +221,19 @@ void jita_push_vsnip_jmp_near_abs(jita_ctxt_t *ctxt, uint64_t target_addr) {
     jita_push_vsnip(ctxt, jmp_dir_snip);
 }
 
-void jita_push_vsnip_jmp_near_rel(jita_ctxt_t *ctxt, uint32_t offset) {
-    LOG_TRACE("(%p, 0x%x)\n", ctxt, offset);
+void jita_push_vsnip_jmp_near_rel(jita_ctxt_t *ctxt, uint32_t offset, bool inclusive) {
+    LOG_TRACE("(%p, 0x%x, %b)\n", ctxt, offset, inclusive);
 
     ASSERT(ctxt);
 
+    // Compensate for the jmp instruction size of required
+    ASSERT(!inclusive || offset >= 5);
+    uint32_t off = inclusive ? offset - 5 : offset;
+    LOG_DEBUG("Adjust offset to %u\n", off);
+
     vsnip_t jmp_dir_snip = (vsnip_t){
         .type = VSNIP_JMP_NEAR_REL,
-        .vsnip_jmp_near_rel = (vsnip_jmp_near_rel_t){.offset = offset},
+        .vsnip_jmp_near_rel = (vsnip_jmp_near_rel_t){.offset = off},
     };
     jita_push_vsnip(ctxt, jmp_dir_snip);
 }

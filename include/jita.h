@@ -8,6 +8,7 @@
 #include "psnip.h"
 #include "stub.h"
 #include "vsnip.h"
+#include <stdbool.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -104,9 +105,10 @@ void jita_push_vsnip_dump_stub(jita_ctxt_t *ctxt, stub_t *dump_to);
 void jita_push_vsnip_jmp_near_abs(jita_ctxt_t *ctxt, uint64_t target_addr);
 
 /**
- * Create a virtual snippet that does a direct jump with `offset`
+ * Create a virtual snippet that does a direct jump with `offset`. `inclusive` controls
+ * whether the jmp instruction size is part of `offset` or not.
  */
-void jita_push_vsnip_jmp_near_rel(jita_ctxt_t *ctxt, uint32_t offset);
+void jita_push_vsnip_jmp_near_rel(jita_ctxt_t *ctxt, uint32_t offset, bool inclusive);
 
 /**
  * Create a virtual snippet that adds `num` nops
