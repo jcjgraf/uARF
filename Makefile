@@ -1,5 +1,8 @@
 uARF_ROOT := $(abspath $(CURDIR))
 
+CONFIG := $(uARF_ROOT)/.config
+include $(CONFIG)
+
 CC := gcc
 AR := ar
 

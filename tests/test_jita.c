@@ -3,8 +3,6 @@
  * Desc: Test jita, using snips and stubs
  */
 
-#define TEST_NAME test_jita
-
 #include "compiler.h"
 #include "jita.h"
 #include "lib.h"
@@ -40,8 +38,7 @@ TEST_CASE(globally_allocated_jita) {
     int var = a(5);
 
     ASSERT(var == 8);
-
-    return 0;
+    TEST_PASS();
 }
 
 // Use a global jita and allocate to local stub
@@ -57,7 +54,7 @@ TEST_CASE(locally_allocated_jita) {
 
     jita_deallocate(&jita_get_inc3, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Local jita
@@ -80,7 +77,7 @@ TEST_CASE(local_jita) {
 
     jita_deallocate(&ctxt, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Clone global jita and extend locally.
@@ -108,7 +105,7 @@ TEST_CASE(global_jita_clone_local) {
 
     jita_deallocate(&ctxt, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_dump_stub
@@ -135,7 +132,7 @@ TEST_CASE(vsnip_dump_stub) {
     ASSERT(local_stub.end_addr == dump_stub.end_addr + psnip_size(&psnip_inc));
     jita_deallocate(&jita_get_inc3, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_aligned and vsnip_assert_align
@@ -179,7 +176,7 @@ TEST_CASE_ARG(vsnip_align, arg) {
 
     jita_deallocate(&ctxt, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Aligning an already aligned address does not add more padding
@@ -206,7 +203,7 @@ TEST_CASE(vsnip_align_aligned) {
 
     jita_deallocate(&ctxt, &local_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_jmp_near_abs
@@ -237,7 +234,7 @@ TEST_CASE(vsnip_jmp_near_abs) {
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_jmp_near_rel having the offset be inclusive
@@ -273,7 +270,7 @@ TEST_CASE(vsnip_jmp_near_rel_inclusive) {
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_jmp_near_rel having the offset be exclusive
@@ -311,7 +308,7 @@ TEST_CASE(vsnip_jmp_near_rel_exclusive) {
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
 
-    return 0;
+    TEST_PASS();
 }
 
 // Test vsnip_fill
@@ -349,10 +346,10 @@ static unsigned long __text vsnip_fill() {
 
     ASSERT(var == 7);
 
-    return 0;
+    TEST_PASS();
 }
 
-TEST_SUITE(TEST_NAME) {
+TEST_SUITE() {
 
     jita_push_psnip(&jita_inc3, &psnip_inc);
     jita_push_psnip(&jita_inc3, &psnip_inc);
