@@ -49,4 +49,8 @@
 
 // Align an address, rounding the address up
 #define ALIGN_UP(addr, align) (((_ul(addr)) + ((_ul(align)) - 1)) & ~((_ul(align)) - 1))
+
+// Is the number a power of two (larger than 0)?
+#define IS_POW_TWO(num) ((num & (num - 1)) == 0)
+
 #endif

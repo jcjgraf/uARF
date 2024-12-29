@@ -15,3 +15,8 @@
     name(_ptr(arg))
 
 #define TEST_PASS() return 0
+
+#define INIT_SRAND(var)                                                                  \
+    uint32_t var;                                                                        \
+    asm("rdrand %0" : "=r"(var));                                                        \
+    srand(var)

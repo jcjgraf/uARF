@@ -95,4 +95,4 @@ extern log_tag_t log_system_tag;
     LOG_LOG(printf, LOG_LEVEL_ERROR, LOG_TAG, "ERROR", LOG_C_DARK_RED,                   \
             format __VA_OPT__(, ) __VA_ARGS__)
 #define HERE()                                                                           \
-    printk(LOG_C_DARK_RED "%s, %s, %u\n" LOG_C_RESET, __FILE__, __func__, __LINE__)
+    printf(LOG_C_DARK_RED "%s, %s, %u\n" LOG_C_RESET, __FILE__, __func__, __LINE__)
