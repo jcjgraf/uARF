@@ -29,9 +29,6 @@ LIBRARY := lib$(LIBRARY_NAME).a
 
 # LDFLAGS := -L $(uARF_ROOT) -l$(LIBRARY_NAME)
 
-TEST_SOURCES := $(shell find $(TEST_DIR) -name "test_*.c")
-TEST_TARGETS := $(patsubst $(TEST_DIR)/%.c, %, $(TEST_SOURCES))
-
 ifneq ($(TESTCASE),)
 TEST_DIR := ./tests
 TESTCASE_BASE := ./tests/$(TESTCASE)
@@ -65,10 +62,6 @@ DEPFILES := $(OBJS:.o=.d)
 test: $(TESTCASE_C) $(OBJS)
 	@echo "CC Test " $(TESTCASE)
 	$(VERBOSE) $(CC) $(CFLAGS) -o $(TESTCASE_BIN) $(filter %.o, $^)
-
-list_tests:
-	@echo "Available tests:"
-	$(VERBOSE) for test in $(TEST_TARGETS); do echo "  $$test"; done
 
 .PHONY: clean
 clean:
