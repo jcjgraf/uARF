@@ -2,3 +2,7 @@
 *.bin
 *.d
 *.a
+*.cpio.gz
+
+scripts/busybox
+scripts/initramfs
