@@ -132,7 +132,7 @@ if [ "$daemon" = true ]; then
         # Editors may not modify, but "replace" the file => monitor other events too
         inotifywait -e modify -e delete_self -e move_self $watch_files
 
-        if [ $? -neq 0 ]; then
+        if [ $? -ne 0 ]; then
             log_err "inotifywait failed"
             exit $?
         fi
