@@ -37,6 +37,7 @@ WATCH_FILES_CMD=(
     -or -name ".config" \
     -or -name "Makefile" \
     -or -name "*.bin" \
+    -or -name "*.ko" \
     # -or -name "*.sh" \
 )
 
@@ -130,6 +131,11 @@ if [ "$daemon" = true ]; then
         # Wait for event to happen
         # Editors may not modify, but "replace" the file => monitor other events too
         inotifywait -e modify -e delete_self -e move_self $watch_files
+
+        if [ $? -neq 0 ]; then
+            log_err "inotifywait failed"
+            exit $?
+        fi
     done
 else
     log "Running: $sync_cmd"
