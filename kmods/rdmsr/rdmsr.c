@@ -3,16 +3,13 @@
  */
 
 #include <linux/device.h>
+#include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/printk.h>
+#include <linux/uaccess.h>
+#include <linux/version.h>
 
-#define DEVICE_NAME "rdmsr"
-#define IOCTL_RDMSR _IOWR('m', 1, struct msr_request)
-
-struct msr_request {
-    uint32_t msr;
-    uint64_t value;
-};
+#include "rdmsr.h"
 
 static int major;
 static struct class *cls;
@@ -23,22 +20,28 @@ static long rdmsr_ioctl(struct file *file, unsigned int cmd, unsigned long arg) 
 
     struct msr_request req;
 
-    if (cmd != IOCTL_RDMSR) {
-        pr_warn("Invalid cmd\n");
-        return -EINVAL;
-    }
-
     if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
         pr_warn("Failed to copy data from user\n");
         return -EINVAL;
     }
 
-    // if (!rdmsrl_safe(req.msr, &req.value)) {
-    // if (!native_read_msr(req.msr, &req.value)) {
-    req.value = native_read_msr(req.msr);
-        // pr_err("Failed to rdmsr\n");
-        // return -EINVAL;
-    // }
+    switch (cmd) {
+    case IOCTL_RDMSR: {
+        pr_debug("Type RDMSR: msr 0x%x\n", req.msr);
+        rdmsrl(req.msr, req.value);
+        pr_debug("Got value 0x%llx\n", req.value);
+        break;
+    }
+    case IOCTL_WRMSR: {
+        pr_debug("Type WRMSR: msr 0x%x, value 0x%llx\n", req.msr, req.value);
+        wrmsrl(req.msr, req.value);
+        break;
+    }
+    default: {
+        pr_warn("Unsupported command encountered: %d\n", cmd);
+        return -EINVAL;
+    }
+    }
 
     if (copy_to_user((struct msr_request __user *) arg, &req, sizeof(req))) {
         pr_warn("Failed to copy data back to user\n");
@@ -62,7 +65,12 @@ static int __init rdmsr_init(void) {
     }
     pr_debug("Registered device with major number %d\n", major);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
     cls = class_create(DEVICE_NAME);
+#else
+    cls = class_create(THIS_MODULE, DEVICE_NAME);
+#endif
+
     if (IS_ERR(cls)) {
         pr_alert("Failed to create class\n");
         unregister_chrdev(major, DEVICE_NAME);

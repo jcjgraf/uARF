@@ -13,7 +13,7 @@ uARF_TEST := $(uARF_ROOT)/tests
 KDIR := ~/Documents/Programming/LinuxKernelTorvalds
 KMOD_DIR := ./kmods
 
-COMMON_INCLUDES := -I$(uARF_INCL)
+COMMON_INCLUDES := -I$(uARF_INCL) -I$(uARF_KMOD)
 
 # ifdef KTF_ROOT
 # export __KTF__

@@ -3,41 +3,31 @@
  * Desc: Rest the rdmsr kernel module
  */
 
+#include "rdmsr/rdmsr.h"
 #include "test.h"
-// #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 
-#define DEVICE      "/dev/rdmsr"
-#define IOCTL_RDMSR _IOWR('m', 1, struct msr_request)
-
-struct msr_request {
-    uint32_t msr;
-    uint64_t value;
-};
+#define DEVICE "/dev/" DEVICE_NAME
 
 int main(void) {
-    int fd;
 
-    struct msr_request req;
+    msr_init();
 
-    fd = open(DEVICE, O_RDWR);
-    if (fd < 0) {
-        perror("Module not loaded\n");
-        // return -ENODEV;
-        return 1;
-    }
+    uint64_t val_orig = msr_rdmsr(0x48);
+    printf("Original value: 0x%lx\n", val_orig);
 
-    req.msr = 0x48;
+    uint64_t val_new = val_orig ^ 1;
+    msr_wrmsr(0x48, val_new);
 
-    if (ioctl(fd, IOCTL_RDMSR, &req) < 0) {
-        perror("Failed to read MSR\n");
-        // close(fd);
-        return 1;
-    }
+    uint64_t val_changed = msr_rdmsr(0x48);
+    printf("Changed value: 0x%lx, should be 0x%lx\n", val_changed, val_new);
 
-    printf("MSR 0x%x = 0x%lx\n", req.msr, req.value);
+    msr_wrmsr(0x48, val_orig);
+
+    uint64_t val_final = msr_rdmsr(0x48);
+    printf("Reset value: 0x%lx\n", val_final);
 
     return 0;
 }
