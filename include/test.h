@@ -1,4 +1,6 @@
 #include "log.h"
+#include <stdlib.h>
+
 #ifdef LOG_TAG
 #undef LOG_TAG
 #define LOG_TAG LOG_TAG_TEST
@@ -15,6 +17,13 @@
     name(_ptr(arg))
 
 #define TEST_PASS() return 0
+#define TEST_ASSERT(cond)                                                                \
+    ({                                                                                   \
+        if (!(cond)) {                                                                   \
+            LOG_WARNING("%s: Assert at %d failed: %s", __func__, __LINE__, STR((cond))); \
+            exit(1);                                                                     \
+        }                                                                                \
+    })
 
 #define INIT_SRAND(var)                                                                  \
     uint32_t var;                                                                        \

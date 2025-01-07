@@ -3,31 +3,38 @@
  * Desc: Test the msr kernel module
  */
 
-#include "uarf_msr/uarf_msr.h"
 #include "test.h"
+#include "uarf_msr/uarf_msr.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 
 #define DEVICE "/dev/" DEVICE_NAME
 
-int main(void) {
+TEST_CASE(read_write) {
 
     msr_init();
 
     uint64_t val_orig = msr_rdmsr(0x48);
-    printf("Original value: 0x%lx\n", val_orig);
 
     uint64_t val_new = val_orig ^ 1;
     msr_wrmsr(0x48, val_new);
 
     uint64_t val_changed = msr_rdmsr(0x48);
-    printf("Changed value: 0x%lx, should be 0x%lx\n", val_changed, val_new);
+
+    TEST_ASSERT((val_changed ^ 1) == val_orig);
 
     msr_wrmsr(0x48, val_orig);
 
     uint64_t val_final = msr_rdmsr(0x48);
-    printf("Reset value: 0x%lx\n", val_final);
+
+    TEST_ASSERT(val_orig == val_final);
+
+    TEST_PASS();
+}
+
+TEST_SUITE() {
+    RUN_TEST_CASE(read_write);
 
     return 0;
 }
