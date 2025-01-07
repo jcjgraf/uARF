@@ -6,7 +6,14 @@ include $(CONFIG)
 CC := gcc
 AR := ar
 
-COMMON_INCLUDES := -I$(uARF_ROOT)/include
+uARF_SRC := $(uARF_ROOT)/src
+uARF_INCL := $(uARF_ROOT)/include
+uARF_TEST := $(uARF_ROOT)/tests
+
+KDIR := ~/Documents/Programming/LinuxKernelTorvalds
+KMOD_DIR := ./kmods
+
+COMMON_INCLUDES := -I$(uARF_INCL)
 
 # ifdef KTF_ROOT
 # export __KTF__
@@ -17,9 +24,9 @@ COMMON_FLAGS := $(COMMON_INCLUDES) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
 CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g
 
-SOURCES     := $(shell find . -name \*.c -and -not -path "./tests/test_*")
-HEADERS     := $(shell find . -name \*.h)
-ASM_SOURCES := $(shell find . -name \*.S)
+SOURCES     := $(shell find $(uARF_SRC) -name \*.c)
+HEADERS     := $(shell find $(uARF_INCL) -name \*.h)
+ASM_SOURCES := $(shell find $(uARF_SRC) $(uARF_INCL) -name \*.S)
 
 OBJS := $(SOURCES:%.c=%.o)
 OBJS += $(ASM_SOURCES:%.S=%.o)
@@ -30,8 +37,7 @@ LIBRARY := lib$(LIBRARY_NAME).a
 # LDFLAGS := -L $(uARF_ROOT) -l$(LIBRARY_NAME)
 
 ifneq ($(TESTCASE),)
-TEST_DIR := ./tests
-TESTCASE_BASE := ./tests/$(TESTCASE)
+TESTCASE_BASE := $(uARF_TEST)/$(TESTCASE)
 TESTCASE_BIN := $(TESTCASE).bin
 TESTCASE_C := $(TESTCASE_BASE).c
 TESTCASE_H := $(wildcard $(TESTCASE_BASE).h)
@@ -42,6 +48,8 @@ endif
 ifneq ($(V), 1)
 	VERBOSE=@
 endif
+
+all: $(LIBRARY)
 
 $(LIBRARY): $(OBJS)
 	@echo "AR " $@
@@ -70,3 +78,16 @@ clean:
 	$(VERBOSE) find $(uARF_ROOT) -name \*.o -delete
 	$(VERBOSE) find $(uARF_ROOT) -name $(LIBRARY) -delete
 	$(VERBOSE) find $(uARF_ROOT) -name \*.bin -delete
+
+compile_database.json: clean clean_kmod
+	@echo "Create $@"
+	bear -- $(MAKE) $(LIBRARY) kmod
+
+.PHONY: kmod
+kmod:
+	$(VERBOSE) $(MAKE) -C $(KMOD_DIR) KDIR=$(KDIR)
+
+.PHONY: kmod_clean
+kmod_clean:
+	@echo "Clean KMOD"
+	$(VERBOSE) $(MAKE) -C $(KMOD_DIR) clean
