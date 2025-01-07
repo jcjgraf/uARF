@@ -1,9 +1,9 @@
 /*
- * Name: test_kmod_rdmsr
- * Desc: Rest the rdmsr kernel module
+ * Name: test_kmod_msr
+ * Desc: Test the msr kernel module
  */
 
-#include "rdmsr/rdmsr.h"
+#include "uarf_msr/uarf_msr.h"
 #include "test.h"
 #include <fcntl.h>
 #include <stdio.h>

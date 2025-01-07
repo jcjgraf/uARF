@@ -4,28 +4,12 @@ ifeq ($(KDIR),)
 $(error Do not run this makefile directly, but via its parent)
 endif
 
-all: rdmsr/rdmsr.ko
+all: uarf_msr/uarf_msr.ko
 
-rdmsr/rdmsr.ko: rdmsr/rdmsr.c
+uarf_msr/uarf_msr.ko: uarf_msr/uarf_msr.c
 	@echo "Building kernel module in $@"
-	$(MAKE) -C $(KDIR) M=$(PWD)/rdmsr
+	$(MAKE) -C $(KDIR) M=$(PWD)/uarf_msr
 
 .PHONY: clean
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD)/rdmsr clean
-
-.PHONY: load
-load:
-	@echo "Load"
-	sudo insmod $(PWD)/rdmsr/rdmsr.ko
-
-.PHONY: kmod_unload
-kmod_unload:
-	@echo "Unload kmod"
-	sudo rmmod $(PWD)/rdmsr/rdmsr.ko
-
-.PHONY: kmod_reload
-kmod_reload:
-	@echo "Reload kmod"
-	unload
-	load
+	$(MAKE) -C $(KDIR) M=$(PWD)/uarf_msr clean

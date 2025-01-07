@@ -1,5 +1,5 @@
 /*
- * Enable a user to run `rdmsr`.
+ * Enable a user to run `rdmsr` and `wrmsr`.
  */
 
 #include <linux/device.h>
@@ -9,13 +9,13 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#include "rdmsr.h"
+#include "uarf_msr.h"
 
 static int major;
 static struct class *cls;
 static struct device *dev;
 
-static long rdmsr_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+static long msr_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_info("IOCTL received\n");
 
     struct msr_request req;
@@ -52,11 +52,11 @@ static long rdmsr_ioctl(struct file *file, unsigned int cmd, unsigned long arg) 
 }
 
 static struct file_operations fops = {
-    .unlocked_ioctl = rdmsr_ioctl,
+    .unlocked_ioctl = msr_ioctl,
 };
 
-static int __init rdmsr_init(void) {
-    pr_debug("rdmsr initiated\n");
+static int __init msr_init(void) {
+    pr_debug("msr initiated\n");
 
     major = register_chrdev(0, DEVICE_NAME, &fops);
     if (major < 0) {
@@ -89,8 +89,8 @@ static int __init rdmsr_init(void) {
     return 0;
 }
 
-static void __exit rdmsr_exit(void) {
-    pr_debug("rdmsr exited\n");
+static void __exit msr_exit(void) {
+    pr_debug("msr exited\n");
 
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
@@ -99,7 +99,7 @@ static void __exit rdmsr_exit(void) {
     pr_info("Device exited successfully\n");
 }
 
-module_init(rdmsr_init);
-module_exit(rdmsr_exit);
+module_init(msr_init);
+module_exit(msr_exit);
 
 MODULE_LICENSE("GPL");
