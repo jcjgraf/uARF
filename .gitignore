@@ -4,5 +4,13 @@
 *.a
 *.cpio.gz
 
+*.ko
+*.cmd
+Module.symvers
+modules.order
+*.mod
+*.mod.c
+
 scripts/busybox
 scripts/initramfs
+scripts/bzImage
