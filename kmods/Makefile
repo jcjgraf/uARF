@@ -1,12 +1,8 @@
-ccflags-y := \
-	-DDEBUG \
-	$(CCFLAGS)
-
 PWD = $(CURDIR)
 
-# TODO: Set depending on target
-# KDIR := /lib/modules/$(shell uname -r)/build
-KDIR := /home/jeanclaude/Documents/Programming/LinuxKernelTorvalds
+ifeq ($(KDIR),)
+$(error Do not run this makefile directly, but via its parent)
+endif
 
 all: rdmsr/rdmsr.ko
 

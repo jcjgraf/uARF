@@ -3,15 +3,20 @@ uARF_ROOT := $(abspath $(CURDIR))
 CONFIG := $(uARF_ROOT)/.config
 include $(CONFIG)
 
-CC := gcc
-AR := ar
+ifeq ($(PLATFORM),)
+	$(error Please define PLATFORM)
+endif
+
+PLATFORM_CONFIG := $(uARF_ROOT)/config/$(PLATFORM).config
+include $(PLATFORM_CONFIG)
 
 uARF_SRC := $(uARF_ROOT)/src
 uARF_INCL := $(uARF_ROOT)/include
 uARF_TEST := $(uARF_ROOT)/tests
+uARF_KMOD := $(uARF_ROOT)/kmods
 
-KDIR := ~/Documents/Programming/LinuxKernelTorvalds
-KMOD_DIR := ./kmods
+CC := gcc
+AR := ar
 
 COMMON_INCLUDES := -I$(uARF_INCL) -I$(uARF_KMOD)
 
@@ -25,7 +30,7 @@ AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
 CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static
 
 SOURCES     := $(shell find $(uARF_SRC) -name \*.c)
-HEADERS     := $(shell find $(uARF_INCL) -name \*.h)
+HEADERS     := $(shell find $(uARF_INCL) $(uARF_KMOD) -name \*.h)
 ASM_SOURCES := $(shell find $(uARF_SRC) $(uARF_INCL) -name \*.S)
 
 OBJS := $(SOURCES:%.c=%.o)
@@ -49,7 +54,7 @@ ifneq ($(V), 1)
 	VERBOSE=@
 endif
 
-all: $(LIBRARY)
+all: $(LIBRARY) kmods test
 
 $(LIBRARY): $(OBJS)
 	@echo "AR " $@
@@ -79,15 +84,15 @@ clean:
 	$(VERBOSE) find $(uARF_ROOT) -name $(LIBRARY) -delete
 	$(VERBOSE) find $(uARF_ROOT) -name \*.bin -delete
 
-compile_database.json: clean clean_kmod
+compile_commands.json: clean kmods_clean
 	@echo "Create $@"
-	bear -- $(MAKE) $(LIBRARY) kmod
+	$(VERBOSE) bear -- $(MAKE) $(LIBRARY) kmod
 
-.PHONY: kmod
-kmod:
-	$(VERBOSE) $(MAKE) -C $(KMOD_DIR) KDIR=$(KDIR)
+.PHONY: kmods
+kmods:
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR)
 
-.PHONY: kmod_clean
-kmod_clean:
+.PHONY: kmods_clean
+kmods_clean:
 	@echo "Clean KMOD"
-	$(VERBOSE) $(MAKE) -C $(KMOD_DIR) clean
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR) clean
