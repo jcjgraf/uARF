@@ -46,6 +46,8 @@ if [ ! -d "$SHARE_DIR" ]; then
     exit 1
 fi
 
+# TODO: Assert KVM is available
+
 # Run QEMU
 qemu-system-x86_64 \
     -kernel "$KERNEL" \
@@ -53,4 +55,6 @@ qemu-system-x86_64 \
     -nographic \
     -append "console=ttyS0" \
     -m 512 \
+    -cpu host \
+    -enable-kvm \
     -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=mapped
