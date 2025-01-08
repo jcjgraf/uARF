@@ -20,7 +20,8 @@
 #define TEST_ASSERT(cond)                                                                \
     ({                                                                                   \
         if (!(cond)) {                                                                   \
-            LOG_WARNING("%s: Assert at %d failed: %s", __func__, __LINE__, STR((cond))); \
+            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
+                        STR((cond)));                                                    \
             exit(1);                                                                     \
         }                                                                                \
     })

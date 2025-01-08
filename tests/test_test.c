@@ -12,7 +12,7 @@ TEST_CASE(hello_world) {
 }
 
 TEST_CASE_ARG(hello_arg, arg) {
-    printf("Got argument %lu\n", _ul(arg));
+    TEST_ASSERT(_ul(arg) == 5);
     TEST_PASS();
 }
 

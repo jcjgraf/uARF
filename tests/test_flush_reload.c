@@ -8,7 +8,6 @@
 #include "log.h"
 #include "mem.h"
 #include "test.h"
-#include "utils.h"
 #include <stdbool.h>
 
 bool is_clflush_supported(void) {
@@ -19,7 +18,7 @@ bool is_clflush_supported(void) {
 // Check if the CPU has support for clflush instruction
 TEST_CASE(case_clflush) {
     // TODO: should be non-zero
-    ASSERT(is_clflush_supported());
+    TEST_ASSERT(is_clflush_supported());
     LOG_DEBUG("cl flush is supported\n");
 
     TEST_PASS();
@@ -48,8 +47,8 @@ TEST_CASE(case_flush) {
     t_n = get_access_time(loc);
     LOG_DEBUG("Uncached: %u\n", t_n);
 
-    ASSERT(t_c < t_n);
-    ASSERT(t_c < FR_THRESH);
+    TEST_ASSERT(t_c < t_n);
+    TEST_ASSERT(t_c < FR_THRESH);
 
     TEST_PASS();
 }
@@ -85,7 +84,7 @@ TEST_CASE(buffer_values) {
     fr_reset(&conf);
 
     for (size_t i = 0; i < conf.num_slots; i++) {
-        ASSERT(*(uint64_t *) (conf.buf.p + i * FR_STRIDE) == i + 1);
+        TEST_ASSERT(*(uint64_t *) (conf.buf.p + i * FR_STRIDE) == i + 1);
     }
 
     fr_deinit(&conf);

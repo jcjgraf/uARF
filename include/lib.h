@@ -11,7 +11,8 @@
 #define ASSERT(cond)                                                                     \
     do {                                                                                 \
         if (!(cond)) {                                                                   \
-            LOG_WARNING("%s: Assert at %d failed: %s", __func__, __LINE__, STR((cond))); \
+            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
+                        STR((cond)));                                                    \
             exit(1);                                                                     \
         }                                                                                \
     } while (0)
@@ -98,5 +99,5 @@ static inline uint64_t rdmsr(uint32_t msr_idx) {
 
 static inline void wrmsr(uint32_t msr_idx, uint64_t value) {
     asm volatile("wrmsr" ::"c"(msr_idx), "a"((uint32_t) value),
-                 "d"((uint32_t)(value >> 32)));
+                 "d"((uint32_t) (value >> 32)));
 }

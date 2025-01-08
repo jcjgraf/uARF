@@ -37,7 +37,7 @@ TEST_CASE(globally_allocated_jita) {
     int (*a)(int) = (int (*)(int)) stub1.ptr;
     int var = a(5);
 
-    ASSERT(var == 8);
+    TEST_ASSERT(var == 8);
     TEST_PASS();
 }
 
@@ -50,7 +50,7 @@ TEST_CASE(locally_allocated_jita) {
     int (*a)(int) = (int (*)(int)) local_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 8);
+    TEST_ASSERT(var == 8);
 
     jita_deallocate(&jita_get_inc3, &local_stub);
 
@@ -73,7 +73,7 @@ TEST_CASE(local_jita) {
     int (*a)(int) = (int (*)(int)) local_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 8);
+    TEST_ASSERT(var == 8);
 
     jita_deallocate(&ctxt, &local_stub);
 
@@ -101,7 +101,7 @@ TEST_CASE(global_jita_clone_local) {
     int (*a)(int) = (int (*)(int)) local_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 11);
+    TEST_ASSERT(var == 11);
 
     jita_deallocate(&ctxt, &local_stub);
 
@@ -118,18 +118,18 @@ TEST_CASE(vsnip_dump_stub) {
     jita_clone(&jita_get_inc3, &ctxt);
     jita_push_vsnip_dump_stub(&ctxt, &dump_stub);
     jita_allocate(&ctxt, &local_stub, ALIGN_UP(rand47(), PAGE_SIZE));
-    ASSERT(local_stub.base_addr == dump_stub.base_addr);
-    ASSERT(local_stub.size == dump_stub.size);
-    ASSERT(local_stub.addr == dump_stub.addr);
-    ASSERT(local_stub.end_addr == dump_stub.end_addr);
+    TEST_ASSERT(local_stub.base_addr == dump_stub.base_addr);
+    TEST_ASSERT(local_stub.size == dump_stub.size);
+    TEST_ASSERT(local_stub.addr == dump_stub.addr);
+    TEST_ASSERT(local_stub.end_addr == dump_stub.end_addr);
     jita_deallocate(&jita_get_inc3, &local_stub);
 
     jita_push_psnip(&ctxt, &psnip_inc);
     jita_allocate(&ctxt, &local_stub, rand47());
-    ASSERT(local_stub.base_addr == dump_stub.base_addr);
-    ASSERT(local_stub.size == dump_stub.size);
-    ASSERT(local_stub.addr == dump_stub.addr);
-    ASSERT(local_stub.end_addr == dump_stub.end_addr + psnip_size(&psnip_inc));
+    TEST_ASSERT(local_stub.base_addr == dump_stub.base_addr);
+    TEST_ASSERT(local_stub.size == dump_stub.size);
+    TEST_ASSERT(local_stub.addr == dump_stub.addr);
+    TEST_ASSERT(local_stub.end_addr == dump_stub.end_addr + psnip_size(&psnip_inc));
     jita_deallocate(&jita_get_inc3, &local_stub);
 
     TEST_PASS();
@@ -155,24 +155,24 @@ TEST_CASE_ARG(vsnip_align, arg) {
 
     jita_allocate(&ctxt, &local_stub, addr);
 
-    ASSERT(!memcmp(local_stub.ptr, psnip_inc.ptr, psnip_size(&psnip_inc)));
+    TEST_ASSERT(!memcmp(local_stub.ptr, psnip_inc.ptr, psnip_size(&psnip_inc)));
 
     uint64_t cur = local_stub.addr + psnip_size(&psnip_inc);
     while (*(uint8_t *) cur == 0x90) {
         cur++;
     }
-    ASSERT(ALIGN_UP(cur, alignment) == cur);
+    TEST_ASSERT(ALIGN_UP(cur, alignment) == cur);
 
-    ASSERT(cur == dump_stub.end_addr);
+    TEST_ASSERT(cur == dump_stub.end_addr);
 
-    ASSERT(!memcmp(_ptr(cur), psnip_inc.ptr, psnip_size(&psnip_inc)));
+    TEST_ASSERT(!memcmp(_ptr(cur), psnip_inc.ptr, psnip_size(&psnip_inc)));
     cur += psnip_size(&psnip_inc);
-    ASSERT(!memcmp(_ptr(cur), psnip_ret_val.ptr, psnip_size(&psnip_ret_val)));
+    TEST_ASSERT(!memcmp(_ptr(cur), psnip_ret_val.ptr, psnip_size(&psnip_ret_val)));
 
     int (*a)(int) = (int (*)(int)) local_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 7);
+    TEST_ASSERT(var == 7);
 
     jita_deallocate(&ctxt, &local_stub);
 
@@ -196,10 +196,10 @@ TEST_CASE(vsnip_align_aligned) {
     jita_push_psnip(&ctxt, &psnip_inc);
 
     jita_allocate(&ctxt, &local_stub, rand47());
-    ASSERT(dump_stub1.base_addr == dump_stub2.base_addr);
-    ASSERT(dump_stub1.addr == dump_stub2.addr);
-    ASSERT(dump_stub1.end_addr == dump_stub2.end_addr);
-    ASSERT(dump_stub1.size == dump_stub2.size);
+    TEST_ASSERT(dump_stub1.base_addr == dump_stub2.base_addr);
+    TEST_ASSERT(dump_stub1.addr == dump_stub2.addr);
+    TEST_ASSERT(dump_stub1.end_addr == dump_stub2.end_addr);
+    TEST_ASSERT(dump_stub1.size == dump_stub2.size);
 
     jita_deallocate(&ctxt, &local_stub);
 
@@ -216,7 +216,7 @@ TEST_CASE(vsnip_jmp_near_abs) {
 
     uint64_t jmp_src_addr = rand47();
     uint64_t jmp_target_addr = jmp_src_addr ^ (rand() & 0xFFFFFF);
-    ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     jita_push_psnip(&target_ctxt, &psnip_inc);
     jita_push_psnip(&target_ctxt, &psnip_ret_val);
@@ -229,7 +229,7 @@ TEST_CASE(vsnip_jmp_near_abs) {
     int (*a)(int) = (int (*)(int)) jmp_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 6);
+    TEST_ASSERT(var == 6);
 
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
@@ -249,7 +249,7 @@ TEST_CASE(vsnip_jmp_near_rel_inclusive) {
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
     uint64_t jmp_target_addr = jmp_src_addr + offset;
-    ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     jita_push_psnip(&target_ctxt, &psnip_inc);
     jita_push_psnip(&target_ctxt, &psnip_ret_val);
@@ -260,12 +260,12 @@ TEST_CASE(vsnip_jmp_near_rel_inclusive) {
     jita_allocate(&jmp_ctxt, &jmp_stub, jmp_src_addr);
     jita_allocate(&target_ctxt, &target_stub, jmp_target_addr);
 
-    ASSERT(jmp_dump.end_addr + offset == target_stub.addr);
+    TEST_ASSERT(jmp_dump.end_addr + offset == target_stub.addr);
 
     int (*a)(int) = (int (*)(int)) jmp_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 6);
+    TEST_ASSERT(var == 6);
 
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
@@ -285,7 +285,7 @@ TEST_CASE(vsnip_jmp_near_rel_exclusive) {
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
     uint64_t jmp_target_addr = jmp_src_addr + offset + 5;
-    ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     LOG_DEBUG("offset %u\n", offset);
 
@@ -298,12 +298,12 @@ TEST_CASE(vsnip_jmp_near_rel_exclusive) {
     jita_allocate(&jmp_ctxt, &jmp_stub, jmp_src_addr);
     jita_allocate(&target_ctxt, &target_stub, jmp_target_addr);
 
-    ASSERT(jmp_dump.end_addr + offset == target_stub.addr);
+    TEST_ASSERT(jmp_dump.end_addr + offset == target_stub.addr);
 
     int (*a)(int) = (int (*)(int)) jmp_stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 6);
+    TEST_ASSERT(var == 6);
 
     jita_deallocate(&jmp_ctxt, &jmp_stub);
     jita_deallocate(&target_ctxt, &target_stub);
@@ -330,21 +330,21 @@ static unsigned long __text vsnip_fill() {
     jita_allocate(&ctxt, &stub, addr);
 
     // Before is no nop
-    ASSERT(*(uint8_t *) (dump_before.end_addr - 1) != 0x90);
+    TEST_ASSERT(*(uint8_t *) (dump_before.end_addr - 1) != 0x90);
 
     // In-between is all nops
     for (size_t i = 0; i < 42; i++) {
-        ASSERT(*(uint8_t *) (dump_before.end_addr + i) == 0x90);
+        TEST_ASSERT(*(uint8_t *) (dump_before.end_addr + i) == 0x90);
     }
 
     // After is no nop
-    ASSERT(*(uint8_t *) (dump_after.end_addr) != 0x90);
-    ASSERT(dump_after.end_addr = dump_before.end_addr + 42);
+    TEST_ASSERT(*(uint8_t *) (dump_after.end_addr) != 0x90);
+    TEST_ASSERT(dump_after.end_addr = dump_before.end_addr + 42);
 
     int (*a)(int) = (int (*)(int)) stub.ptr;
     int var = a(5);
 
-    ASSERT(var == 7);
+    TEST_ASSERT(var == 7);
 
     TEST_PASS();
 }
