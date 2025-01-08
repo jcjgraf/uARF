@@ -55,6 +55,15 @@ static struct file_operations fops = {
     .unlocked_ioctl = msr_ioctl,
 };
 
+// Gives read/write access to all users
+// Similar how it is none for tty driver
+static char *devnode(const struct device *dev, umode_t *mode) {
+    if (mode) {
+        *mode = 0666; // Set read/write permissions for all users
+    }
+    return NULL;
+}
+
 static int __init msr_init(void) {
     pr_debug("msr initiated\n");
 
@@ -76,6 +85,8 @@ static int __init msr_init(void) {
         unregister_chrdev(major, DEVICE_NAME);
         return PTR_ERR(cls);
     }
+
+    cls->devnode = devnode;
 
     dev = device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
     if (IS_ERR(dev)) {
