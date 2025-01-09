@@ -13,6 +13,8 @@
 #include "test.h"
 #include <stdbool.h>
 
+#define ROUNDS 100
+
 bool is_clflush_supported(void) {
     uint32_t eax = cpuid_eax(1);
     return eax & (1 << 19);
@@ -31,29 +33,36 @@ TEST_CASE(case_clflush) {
 TEST_CASE(case_flush) {
     int *loc = malloc_or_die(sizeof(int));
 
-    uint32_t t_c;
-    uint32_t t_n;
+    uint64_t t_c = 0;
+    uint64_t t_n = 0;
 
-    *(volatile int *) loc = 0;
+    for (size_t i = 0; i < ROUNDS; i++) {
 
-    t_c = get_access_time(loc);
-    t_c = get_access_time(loc);
+        *(volatile int *) loc = 0;
 
-    LOG_DEBUG("Cached: %u\n", t_c);
+        mfence();
 
-    mfence();
+        t_c += get_access_time(loc);
 
-    clflush(loc);
+        mfence();
 
-    mfence();
+        clflush(loc);
 
-    t_n = get_access_time(loc);
-    LOG_DEBUG("Uncached: %u\n", t_n);
+        mfence();
 
-    free_or_die(loc);
+        t_n += get_access_time(loc);
+    }
+
+    t_c /= ROUNDS;
+    t_n /= ROUNDS;
+
+    LOG_DEBUG("Cached:   %lu\n", t_c);
+    LOG_DEBUG("Uncached: %lu\n", t_n);
 
     TEST_ASSERT(t_c < t_n);
     TEST_ASSERT(t_c < FR_THRESH);
+
+    free_or_die(loc);
 
     TEST_PASS();
 }
