@@ -1,5 +1,5 @@
-/*
- * Enable a user to run `rdmsr` and `wrmsr`.
+/***
+ * Enable a user process to run privilege instructions.
  */
 
 #include <linux/device.h>
@@ -9,50 +9,92 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#include "uarf_msr.h"
+#include "uarf_pi.h"
 
 static int major;
 static struct class *cls;
 static struct device *dev;
 
-static long msr_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+static inline unsigned long _read_cr3(void) {
+    unsigned long cr3;
+
+    asm volatile("mov %%cr3, %0" : "=r"(cr3));
+
+    return cr3;
+}
+
+static inline void _write_cr3(unsigned long cr3) {
+    asm volatile("mov %0, %%cr3" ::"r"(cr3));
+}
+
+static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_info("IOCTL received\n");
-
-    struct msr_request req;
-
-    if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
-        pr_warn("Failed to copy data from user\n");
-        return -EINVAL;
-    }
 
     switch (cmd) {
     case IOCTL_RDMSR: {
+
+        struct msr_request req;
+        if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
         pr_debug("Type RDMSR: msr 0x%x\n", req.msr);
         rdmsrl(req.msr, req.value);
         pr_debug("Got value 0x%llx\n", req.value);
+
+        if (copy_to_user((struct msr_request __user *) arg, &req, sizeof(req))) {
+            pr_warn("Failed to copy data back to user\n");
+            return -EINVAL;
+        }
+
         break;
     }
     case IOCTL_WRMSR: {
+
+        struct msr_request req;
+        if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
         pr_debug("Type WRMSR: msr 0x%x, value 0x%llx\n", req.msr, req.value);
         wrmsrl(req.msr, req.value);
+
+        break;
+    }
+    case IOCTL_INVLPG: {
+
+        uint64_t addr;
+        if (copy_from_user(&addr, (uint64_t __user *) arg, sizeof(uint64_t))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
+        pr_debug("Type INVLPG: addr 0x%llx\n", addr);
+        asm volatile("invlpg (%0)" ::"r"(addr) : "memory");
+
+        break;
+    }
+    case IOCTL_FLUSH_TLB: {
+        pr_debug("Type FLUSH_TLB\n");
+        _write_cr3(_read_cr3());
         break;
     }
     default: {
-        pr_warn("Unsupported command encountered: %d\n", cmd);
+        pr_warn("Unsupported command encountered: %lu\n", cmd);
+        pr_debug("RDMSR: %lu\n", IOCTL_RDMSR);
+        pr_debug("WRMSR: %lu\n", IOCTL_WRMSR);
+        pr_debug("INVLPG: %lu\n", IOCTL_INVLPG);
         return -EINVAL;
     }
-    }
-
-    if (copy_to_user((struct msr_request __user *) arg, &req, sizeof(req))) {
-        pr_warn("Failed to copy data back to user\n");
-        return -EINVAL;
     }
 
     return 0;
 }
 
 static struct file_operations fops = {
-    .unlocked_ioctl = msr_ioctl,
+    .unlocked_ioctl = pi_ioctl,
 };
 
 // Gives read/write access to all users
@@ -68,8 +110,8 @@ static char *devnode(struct device *dev, umode_t *mode) {
     return NULL;
 }
 
-static int __init msr_init(void) {
-    pr_debug("msr initiated\n");
+static int __init pi_init(void) {
+    pr_debug("pi module initiated\n");
 
     major = register_chrdev(0, DEVICE_NAME, &fops);
     if (major < 0) {
@@ -104,8 +146,8 @@ static int __init msr_init(void) {
     return 0;
 }
 
-static void __exit msr_exit(void) {
-    pr_debug("msr exited\n");
+static void __exit pi_exit(void) {
+    pr_debug("pi module exited\n");
 
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
@@ -114,7 +156,7 @@ static void __exit msr_exit(void) {
     pr_info("Device exited successfully\n");
 }
 
-module_init(msr_init);
-module_exit(msr_exit);
+module_init(pi_init);
+module_exit(pi_exit);
 
 MODULE_LICENSE("GPL");
