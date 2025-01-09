@@ -65,6 +65,7 @@ function log() {
 
 function log_err() {
     printf "$(date +"%H:%M:%S") ERROR: $* \n" >&2
+    notify-send -u Critical "SYNC ERROR" "$*\n"
 }
 
 # Parse options
