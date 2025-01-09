@@ -23,7 +23,7 @@
 #include "log.h"
 #include "spec_lib.h"
 #include "test.h"
-#include "uarf_msr/uarf_msr.h"
+#include "uarf_pi/uarf_pi.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -135,7 +135,7 @@ static struct TestCaseData data4;
 TEST_SUITE() {
     uint32_t seed = get_seed();
     LOG_INFO("Using seed: %u\n", seed);
-    msr_init();
+    pi_init();
 
     jita_push_psnip(&jita_main_call, &psnip_history);
     jita_push_psnip(&jita_main_call, &psnip_history);
@@ -191,6 +191,8 @@ TEST_SUITE() {
     RUN_TEST_CASE_ARG(basic, &data2);
     RUN_TEST_CASE_ARG(basic, &data3);
     RUN_TEST_CASE_ARG(basic, &data4);
+
+    pi_deinit();
 
     return 0;
 }
