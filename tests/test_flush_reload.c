@@ -1,6 +1,9 @@
 /**
- * Name: test_flush_reload
- * Desc: Verify that the flush and reload tools work as expected
+ * Flush and Reload Side-Channel
+ *
+ * This tests simple flushing, reloading, and timing primitives, as well as the complete
+ * flush and reload functionality.
+ *
  */
 
 #include "compiler.h"
@@ -46,6 +49,8 @@ TEST_CASE(case_flush) {
 
     t_n = get_access_time(loc);
     LOG_DEBUG("Uncached: %u\n", t_n);
+
+    free_or_die(loc);
 
     TEST_ASSERT(t_c < t_n);
     TEST_ASSERT(t_c < FR_THRESH);
@@ -129,4 +134,3 @@ TEST_SUITE() {
 
     TEST_PASS();
 }
-

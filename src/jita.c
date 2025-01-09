@@ -83,6 +83,9 @@ void jita_allocate(jita_ctxt_t *ctxt, stub_t *stub, uint64_t addr) {
 
     ASSERT(addr);
 
+    // Assert stub has not been allocated
+    ASSERT(stub->size == 0);
+
     stub->base_addr = ALIGN_DOWN(addr, PAGE_SIZE);
     stub->size = 0;
     stub->addr = addr;

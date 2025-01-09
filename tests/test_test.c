@@ -1,6 +1,7 @@
-/*
- * Name: test_test
- * Desc: Is the test setup (runner) working?
+/**
+ * Testing Infrastructure
+ *
+ * This tests the very basic testing infrastructure.
  */
 
 #include "test.h"

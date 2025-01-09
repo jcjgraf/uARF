@@ -59,10 +59,6 @@ struct FrConfig {
             uintptr_t addr;
         };
     } buf2;
-    union {
-        char *buf2_p;
-        uintptr_t buf2_addr;
-    };
     // Address of results array
     // [[bin 0 for all num_slots entries], [bin 1 for all num_slots entries], ... [bin
     // num_bins - 1 for all num_slots entries]]

@@ -1,6 +1,7 @@
-/*
- * Name: test_jita
- * Desc: Test jita, using snips and stubs
+/**
+ * JITA, pstubs and vstubs
+ *
+ * Tests the JITA setup, which is itself based on pstubs and vstubs.
  */
 
 #include "compiler.h"
@@ -216,7 +217,8 @@ TEST_CASE(vsnip_jmp_near_abs) {
 
     uint64_t jmp_src_addr = rand47();
     uint64_t jmp_target_addr = jmp_src_addr ^ (rand() & 0xFFFFFF);
-    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >=
+                ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     jita_push_psnip(&target_ctxt, &psnip_inc);
     jita_push_psnip(&target_ctxt, &psnip_ret_val);
@@ -249,7 +251,8 @@ TEST_CASE(vsnip_jmp_near_rel_inclusive) {
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
     uint64_t jmp_target_addr = jmp_src_addr + offset;
-    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >=
+                ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     jita_push_psnip(&target_ctxt, &psnip_inc);
     jita_push_psnip(&target_ctxt, &psnip_ret_val);
@@ -285,7 +288,8 @@ TEST_CASE(vsnip_jmp_near_rel_exclusive) {
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
     uint64_t jmp_target_addr = jmp_src_addr + offset + 5;
-    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >= ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
+    TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >=
+                ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
     LOG_DEBUG("offset %u\n", offset);
 
