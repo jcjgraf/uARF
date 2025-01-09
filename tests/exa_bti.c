@@ -102,8 +102,11 @@ TEST_CASE_ARG(basic, arg) {
             }
 
             fr_flush(&fr);
-            // TODO: prefetch gadget etc.
+            clflush_spec_dst(&signal_data);
+            invlpg_spec_dst(&signal_data);
+            prefetcht0(&train_data);
 
+            // TODO: disable interrupts and preemption
             asm("signal:\n\t");
             asm volatile("lea return_here%=, %%rax\n\t"
                          "pushq %%rax\n\t"
