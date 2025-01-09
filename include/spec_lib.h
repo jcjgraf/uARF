@@ -12,6 +12,7 @@
 
 #ifndef __ASSEMBLY__
 #include "compiler.h"
+#include "lib.h"
 #include <stdint.h>
 
 struct history {
@@ -30,5 +31,17 @@ struct SpecData {
 
 // Get an randomly initialized history
 struct history get_randomized_history(void);
+
+static void __always_inline clflush_spec_dst(const struct SpecData *data) {
+    clflush(_ptr(*(uint64_t *) data->spec_dst_p_p));
+}
+
+static void __always_inline invlpg_spec_dst(const struct SpecData *data) {
+    invlpg(_ptr(*(uint64_t *) data->spec_dst_p_p));
+}
+
+static void __always_inline prefetcht0_spec_dst(const struct SpecData *data) {
+    prefetcht0(_ptr(*(uint64_t *) data->spec_dst_p_p));
+}
 
 #endif // __ASSEMBLY__

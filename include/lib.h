@@ -1,23 +1,13 @@
 #pragma once
 
 #include "compiler.h"
+#include "uarf_pi/uarf_pi.h"
 #include <stdint.h>
 #include <stdlib.h>
 
 #define sfence() asm volatile("sfence" ::: "memory")
 #define lfence() asm volatile("lfence" ::: "memory")
 #define mfence() asm volatile("mfence" ::: "memory")
-
-#define ASSERT(cond)                                                                     \
-    do {                                                                                 \
-        if (!(cond)) {                                                                   \
-            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
-                        STR((cond)));                                                    \
-            exit(1);                                                                     \
-        }                                                                                \
-    } while (0)
-
-#define BUG() exit(1)
 
 static inline uint32_t get_seed(void) {
     uint32_t seed;
@@ -34,30 +24,24 @@ static inline void clflush(const volatile void *p) {
     asm volatile("clflush %0" ::"m"(*(char const *) p) : "memory");
 }
 
-// start measure.
-static inline uint64_t rdtsc(void) {
-    unsigned lo, hi;
-    asm volatile("mfence\n\t"
-                 "rdtsc\n\t"
-                 : "=d"(hi), "=a"(lo));
-    return ((uint64_t) hi << 32) | lo;
+static inline void prefetchw(const void *p) {
+    asm volatile("prefetchw %0" ::"m"(*(char const *) p) : "memory");
 }
 
-// stop meassure.
-static inline uint64_t rdtscp(void) {
-    unsigned lo, hi;
-    asm volatile("rdtscp\n\t"
-                 "mfence\n\t"
-                 : "=d"(hi), "=a"(lo)::"ecx");
-    return ((uint64_t) hi << 32) | lo;
+static inline void prefetcht0(const void *p) {
+    asm volatile("prefetcht0 %0" ::"m"(*(char const *) p) : "memory");
 }
 
-// Get the number of cycles needed to read from `p`
-static inline uint64_t get_access_time(void *p) {
-    // TODO: Check right use of rdtsc(p) and barriers
-    uint64_t t0 = rdtsc();
-    *(volatile uint64_t *) p;
-    return rdtscp() - t0;
+static inline void prefetcht1(const void *p) {
+    asm volatile("prefetcht1 %0" ::"m"(*(char const *) p) : "memory");
+}
+
+static inline void prefetcht2(const void *p) {
+    asm volatile("prefetcht2 %0" ::"m"(*(char const *) p) : "memory");
+}
+
+static inline void prefetchnta(const void *p) {
+    asm volatile("prefetchnta %0" ::"m"(*(char const *) p) : "memory");
 }
 
 static inline void cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
@@ -96,14 +80,55 @@ static inline uint32_t cpuid_edx(uint32_t leaf) {
 }
 
 static inline uint64_t rdmsr(uint32_t msr_idx) {
-    uint32_t low, high;
-
-    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr_idx));
-
-    return (((uint64_t) high) << 32) | low;
+    return pi_rdmsr(msr_idx);
 }
 
 static inline void wrmsr(uint32_t msr_idx, uint64_t value) {
-    asm volatile("wrmsr" ::"c"(msr_idx), "a"((uint32_t) value),
-                 "d"((uint32_t) (value >> 32)));
+    pi_wrmsr(msr_idx, value);
+}
+
+static inline void invlpg(void *addr) {
+    pi_invlpg(_ul(addr));
+}
+
+static inline void flush_tlb(void) {
+    pi_flush_tlb();
+}
+
+#define ASSERT(cond)                                                                     \
+    do {                                                                                 \
+        if (!(cond)) {                                                                   \
+            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
+                        STR((cond)));                                                    \
+            exit(1);                                                                     \
+        }                                                                                \
+    } while (0)
+
+#define BUG() exit(1)
+
+static inline uint64_t rdtsc(void) {
+    unsigned int low, high;
+
+    asm volatile("rdtsc" : "=a"(low), "=d"(high));
+
+    return ((uint64_t) high << 32) | low;
+}
+
+static inline uint64_t rdtscp(void) {
+    unsigned int low, high;
+
+    asm volatile("rdtscp" : "=a"(low), "=d"(high)::"ecx");
+
+    return ((uint64_t) high << 32) | low;
+}
+
+// Get the number of cycles needed to read from `p`
+static inline uint64_t get_access_time(const void *p) {
+    // TODO: Check right use of rdtsc(p) and barriers
+    mfence();
+    uint64_t t0 = rdtsc();
+    *(volatile uint64_t *) p;
+    t0 = rdtscp() - t0;
+    mfence();
+    return t0;
 }
