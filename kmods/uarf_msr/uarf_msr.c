@@ -57,7 +57,11 @@ static struct file_operations fops = {
 
 // Gives read/write access to all users
 // Similar how it is none for tty driver
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
 static char *devnode(const struct device *dev, umode_t *mode) {
+#else
+static char *devnode(struct device *dev, umode_t *mode) {
+#endif
     if (mode) {
         *mode = 0666; // Set read/write permissions for all users
     }

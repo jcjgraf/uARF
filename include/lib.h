@@ -19,6 +19,12 @@
 
 #define BUG() exit(1)
 
+static inline uint32_t get_seed(void) {
+    uint32_t seed;
+    asm("rdrand %0" : "=r"(seed));
+    return seed;
+}
+
 // Get a random 47 bit long number
 static inline uint64_t rand47(void) {
     return (_ul(rand()) << 16) ^ rand();

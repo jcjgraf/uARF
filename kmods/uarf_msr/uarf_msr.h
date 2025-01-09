@@ -21,6 +21,10 @@ struct msr_request {
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#define MSR_PRET_CMD 0x49
+
+#define IBPB() msr_wrmsr(MSR_PRET_CMD, 1);
+
 static int fd_msr;
 
 static inline void msr_init() {

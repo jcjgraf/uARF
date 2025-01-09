@@ -45,6 +45,8 @@ static inline uint64_t psnip_size(psnip_t *snip) {
 }
 
 #else
+#include "asm-macros.h"
+
 /* clang-format off */
 .macro SNIP_START name
     SECTION(.text, "", PAGE_SIZE)
