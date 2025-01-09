@@ -86,7 +86,7 @@ clean:
 
 compile_commands.json: clean kmods_clean
 	@echo "Create $@"
-	$(VERBOSE) bear -- $(MAKE) $(LIBRARY) kmod
+	$(VERBOSE) bear -- $(MAKE) $(LIBRARY) kmods test
 
 .PHONY: kmods
 kmods:
