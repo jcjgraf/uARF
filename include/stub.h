@@ -35,6 +35,15 @@ typedef struct stub {
 } stub_t;
 
 /**
+ * Get an initialized stub_t.
+ *
+ * Only required in local function, as globals are initialized to zero.
+ */
+static __always_inline stub_t stub_init(void) {
+    return (stub_t){.size = 0};
+}
+
+/**
  * Add `size` bytes of code at addr `start` to `stub`.
  */
 void stub_add(stub_t *stub, uint64_t start, uint64_t size);

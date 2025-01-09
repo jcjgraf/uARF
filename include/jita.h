@@ -36,14 +36,13 @@ typedef struct {
 } jita_ctxt_t;
 
 /**
- * Get an initialized jita context
+ * Get an initialized jita_ctxt_t.
  *
  * Only required in local function, as globals are initialized to zero.
  */
-#define jita_get_ctxt()                                                                  \
-    (jita_ctxt_t) {                                                                      \
-        .n_snips = 0                                                                     \
-    }
+static __always_inline jita_ctxt_t jita_init(void) {
+    return (jita_ctxt_t){.n_snips = 0};
+}
 
 /**
  * Allocating a context to a stub at a given address.

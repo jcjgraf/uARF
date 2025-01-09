@@ -41,18 +41,11 @@ struct TestCaseData {
     uint32_t num_cands;
     uint32_t num_rounds;
     uint32_t num_train_rounds;
-    jita_ctxt_t jita_main;
+    jita_ctxt_t *jita_main;
+    jita_ctxt_t *jita_gadget;
+    jita_ctxt_t *jita_dummy;
     bool match_history;
 };
-
-static jita_ctxt_t jita_main_call;
-static jita_ctxt_t jita_main_jmp;
-static jita_ctxt_t jita_gadget;
-static jita_ctxt_t jita_dummy;
-
-static stub_t stub_main;
-static stub_t stub_gadget;
-static stub_t stub_dummy;
 
 TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
@@ -61,14 +54,18 @@ TEST_CASE_ARG(basic, arg) {
     // struct FrConfig fr = fr_init(8, 6, (size_t[]){0, 1, 2, 3, 5, 10});
     struct FrConfig fr = fr_init(8, 1, NULL);
 
+    stub_t stub_main = stub_init();
+    stub_t stub_gadget = stub_init();
+    stub_t stub_dummy = stub_init();
+
     IBPB();
 
     fr_reset(&fr);
 
     for (size_t c = 0; c < data->num_cands; c++) {
-        jita_allocate(&data->jita_main, &stub_main, rand47());
-        jita_allocate(&jita_gadget, &stub_gadget, rand47());
-        jita_allocate(&jita_dummy, &stub_dummy, rand47());
+        jita_allocate(data->jita_main, &stub_main, rand47());
+        jita_allocate(data->jita_gadget, &stub_gadget, rand47());
+        jita_allocate(data->jita_dummy, &stub_dummy, rand47());
 
         struct history h1 = get_randomized_history();
         struct history h2 = data->match_history ? h1 : get_randomized_history();
@@ -117,9 +114,9 @@ TEST_CASE_ARG(basic, arg) {
 
             fr_reload_binned(&fr, r);
         }
-        jita_deallocate(&data->jita_main, &stub_main);
-        jita_deallocate(&jita_gadget, &stub_gadget);
-        jita_deallocate(&jita_dummy, &stub_dummy);
+        jita_deallocate(data->jita_main, &stub_main);
+        jita_deallocate(data->jita_gadget, &stub_gadget);
+        jita_deallocate(data->jita_dummy, &stub_dummy);
     }
 
     LOG_INFO("Fr Buffer\n");
@@ -140,6 +137,11 @@ TEST_SUITE() {
     LOG_INFO("Using seed: %u\n", seed);
     pi_init();
 
+    jita_ctxt_t jita_main_call = jita_init();
+    jita_ctxt_t jita_main_jmp = jita_init();
+    jita_ctxt_t jita_gadget = jita_init();
+    jita_ctxt_t jita_dummy = jita_init();
+
     jita_push_psnip(&jita_main_call, &psnip_history);
     jita_push_psnip(&jita_main_call, &psnip_history);
     jita_push_psnip(&jita_main_call, &psnip_history);
@@ -159,7 +161,9 @@ TEST_SUITE() {
         .num_cands = 100,
         .num_rounds = 10,
         .num_train_rounds = 1,
-        .jita_main = jita_main_jmp,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
         .match_history = true,
     };
 
@@ -168,7 +172,9 @@ TEST_SUITE() {
         .num_cands = 100,
         .num_rounds = 10,
         .num_train_rounds = 1,
-        .jita_main = jita_main_jmp,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
         .match_history = false,
     };
 
@@ -177,7 +183,9 @@ TEST_SUITE() {
         .num_cands = 100,
         .num_rounds = 10,
         .num_train_rounds = 1,
-        .jita_main = jita_main_call,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
         .match_history = true,
     };
 
@@ -186,7 +194,9 @@ TEST_SUITE() {
         .num_cands = 100,
         .num_rounds = 10,
         .num_train_rounds = 1,
-        .jita_main = jita_main_call,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
         .match_history = false,
     };
 
