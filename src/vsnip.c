@@ -17,7 +17,7 @@ int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_adr_ptr, uint64_t rem_
 
     // Check if enough space left
     if (num_bytes > rem_size) {
-        LOG_DEBUG("Ony %lu of required %lu bytes left\n", rem_size, num_bytes);
+        LOG_DEBUG("Only %lu of required %lu bytes left\n", rem_size, num_bytes);
         return -ENOSPC;
     }
 
