@@ -117,8 +117,8 @@ if [ "$daemon" = true ]; then
         timeout $SYNC_TIMEOUT $sync_cmd
 
         if [ $? -eq 124 ]; then
-            log_err "Timeout triggered ($SYNC_TIMEOUT seconds)!"
-            exit $?
+            log_err "Timeout triggered ($SYNC_TIMEOUT seconds)! Retry..."
+            continue
         fi
 
         if [ $? -eq 125 ]; then
