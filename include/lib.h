@@ -104,7 +104,9 @@ static inline void flush_tlb(void) {
         }                                                                                \
     } while (0)
 
-#define BUG() exit(1)
+#define BUG()                                                                            \
+    LOG_WARNING("Hit a Bug\n");                                                          \
+    exit(1)
 
 static inline uint64_t rdtsc(void) {
     unsigned int low, high;
