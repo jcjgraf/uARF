@@ -23,6 +23,12 @@ BUILD_EXCLUDE=(
     --exclude "*.d" \
     --exclude "*.a" \
     --exclude "*.cpio.gz" \
+    --exclude "*.ko" \
+    --exclude "*.cmd" \
+    --exclude "Module.symvers" \
+    --exclude "modules.order" \
+    --exclude "*.mod" \
+    --exclude "*.mod.c" \
     --exclude=scripts/busybox \
     --exclude=scripts/initramfs \
     --exclude=scripts/bzImage \
@@ -84,8 +90,8 @@ function get_sync_cmd() {
     local cmd=(rsync --info=NAME -a)
     cmd+=(${COMMON_EXCLUDE[@]})
 
-    if [ "$all" = true ]; then
-        cmd+=(${BUILD_EXCLUDE})
+    if [ "$all" = false ]; then
+        cmd+=(${BUILD_EXCLUDE[@]})
     fi
 
     if [ "$force" = true ]; then
