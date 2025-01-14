@@ -82,7 +82,7 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         break;
     }
     default: {
-        pr_warn("Unsupported command encountered: %lu\n", cmd);
+        pr_warn("Unsupported command encountered: %u\n", cmd);
         pr_debug("RDMSR: %lu\n", IOCTL_RDMSR);
         pr_debug("WRMSR: %lu\n", IOCTL_WRMSR);
         pr_debug("INVLPG: %lu\n", IOCTL_INVLPG);
