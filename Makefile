@@ -84,12 +84,29 @@ clean:
 	$(VERBOSE) find $(uARF_ROOT) -name $(LIBRARY) -delete
 	$(VERBOSE) find $(uARF_ROOT) -name \*.bin -delete
 
-compile_commands.json: clean kmods_clean
+compile_commands_user.json: clean
 	@echo "Create $@"
-	$(VERBOSE) bear -- $(MAKE) $(LIBRARY) kmods test
+	$(VERBOSE) bear --output $@ -- $(MAKE) $(LIBRARY) test
+
+compile_commands_kmods.json: kmods_clean
+	@echo "Create $@"
+	$(VERBOSE) bear --output $@ -- $(MAKE) kmods
+
+.PHONY: clangd_user
+clangd_user: compile_commands_user.json
+	@echo "Link $< to compile_commands.json"
+	rm -r compile_commands.json
+	ln -s $< compile_commands.json
+
+.PHONY: clangd_kernel
+clangd_kernel: compile_commands_kmods.json
+	@echo "Link $< to compile_commands.json"
+	rm -r compile_commands.json
+	ln -s $< compile_commands.json
 
 .PHONY: kmods
 kmods:
+	@echo "Building kmods with kdir $(KDIR)"
 	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR)
 
 .PHONY: kmods_clean
