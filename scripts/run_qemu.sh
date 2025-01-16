@@ -53,8 +53,9 @@ qemu-system-x86_64 \
     -kernel "$KERNEL" \
     -initrd "$INITRAMFS" \
     -nographic \
-    -append "console=ttyS0" \
+    -append "console=ttyS0 nokaslr" \
     -m 512 \
     -cpu host \
     -enable-kvm \
+    -gdb tcp::1234 \
     -virtfs local,path=$SHARE_DIR,mount_tag=host0,security_model=mapped
