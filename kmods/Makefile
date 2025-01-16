@@ -4,12 +4,20 @@ ifeq ($(KDIR),)
 $(error Do not run this makefile directly, but via its parent)
 endif
 
-all: uarf_pi/uarf_pi.ko
+SOURCES := $(shell find $(PWD) -name \*.c)
+DIRS := $(sort $(dir $(SOURCES)))
+OBJS := $(SOURCES:%.c=%.ko)
 
-uarf_pi/uarf_pi.ko: uarf_pi/uarf_pi.c
-	@echo "Building kernel module in $@"
-	$(MAKE) -C $(KDIR) M=$(PWD)/uarf_pi
+all: $(OBJS)
+
+%.ko: %.c
+	@echo "Building kernel module $@"
+	@echo "With KDIR $(KDIR)"
+	$(MAKE) -C $(KDIR) M=$(dir $@)
+
 
 .PHONY: clean
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD)/uarf_pi clean
+	@for dir in $(DIRS); do \
+		$(MAKE) -C $(KDIR) M=$$dir clean; \
+	done
