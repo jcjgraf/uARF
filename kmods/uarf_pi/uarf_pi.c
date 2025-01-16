@@ -33,7 +33,7 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     switch (cmd) {
     case IOCTL_RDMSR: {
 
-        struct msr_request req;
+        struct req_msr req;
         if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
             pr_warn("Failed to copy data from user\n");
             return -EINVAL;
@@ -52,7 +52,7 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     }
     case IOCTL_WRMSR: {
 
-        struct msr_request req;
+        struct req_msr req;
         if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
             pr_warn("Failed to copy data from user\n");
             return -EINVAL;
@@ -81,11 +81,28 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         _write_cr3(_read_cr3());
         break;
     }
+    case IOCTL_CPUID: {
+        pr_debug("Type CPUID\n");
+        struct req_cpuid req;
+        if (copy_from_user(&req, (uint64_t __user *) arg, sizeof(req))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
+        cpuid(req.eax, &req.eax, &req.ebx, &req.ecx, &req.edx);
+
+        if (copy_to_user((struct msr_request __user *) arg, &req, sizeof(req))) {
+            pr_warn("Failed to copy data back to user\n");
+            return -EINVAL;
+        }
+        break;
+    }
     default: {
         pr_warn("Unsupported command encountered: %u\n", cmd);
         pr_debug("RDMSR: %lu\n", IOCTL_RDMSR);
         pr_debug("WRMSR: %lu\n", IOCTL_WRMSR);
         pr_debug("INVLPG: %lu\n", IOCTL_INVLPG);
+        pr_debug("CPUID: %lu\n", IOCTL_CPUID);
         return -EINVAL;
     }
     }

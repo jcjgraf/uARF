@@ -24,6 +24,7 @@
 #include "spec_lib.h"
 #include "test.h"
 #include "uarf_pi/uarf_pi.h"
+#include "lib.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG

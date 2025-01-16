@@ -7,15 +7,23 @@
 #endif
 
 #define DEVICE_NAME     "uarf_pi"
-#define IOCTL_RDMSR     _IOWR('m', 1, struct msr_request)
-#define IOCTL_WRMSR     _IOWR('m', 2, struct msr_request)
+#define IOCTL_RDMSR     _IOWR('m', 1, struct req_msr)
+#define IOCTL_WRMSR     _IOWR('m', 2, struct req_msr)
 #define IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
 #define IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
+#define IOCTL_CPUID     _IOWR('m', 5, struct req_cpuid)
 
 // For rdmsr/rwmsr
-struct msr_request {
+struct req_msr {
     uint32_t msr;
     uint64_t value;
+};
+
+struct req_cpuid {
+    uint32_t eax; // Leaf
+    uint32_t ebx;
+    uint32_t ecx; // Sub-leaf
+    uint32_t edx;
 };
 
 #ifndef __KERNEL__
@@ -23,10 +31,6 @@ struct msr_request {
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
-#define MSR_PRET_CMD 0x49
-
-#define IBPB() pi_wrmsr(MSR_PRET_CMD, 1);
 
 static int fd_pi;
 
@@ -42,7 +46,7 @@ static inline int pi_deinit() {
 }
 
 static inline uint64_t pi_rdmsr(uint32_t msr) {
-    struct msr_request req = {.msr = msr};
+    struct req_msr req = {.msr = msr};
 
     if (ioctl(fd_pi, IOCTL_RDMSR, &req) < 0) {
         perror("Failed to read MSR\n");
@@ -53,7 +57,7 @@ static inline uint64_t pi_rdmsr(uint32_t msr) {
 }
 
 static inline void pi_wrmsr(uint32_t msr, uint64_t value) {
-    struct msr_request req = {.msr = msr, .value = value};
+    struct req_msr req = {.msr = msr, .value = value};
 
     if (ioctl(fd_pi, IOCTL_WRMSR, &req) < 0) {
         perror("Failed to write MSR\n");
@@ -70,6 +74,29 @@ static inline void pi_invlpg(uint64_t addr) {
 static inline void pi_flush_tlb(void) {
     if (ioctl(fd_pi, IOCTL_FLUSH_TLB, NULL) < 0) {
         perror("Failed to flush TLB\n");
+    }
+}
+
+static inline void pi_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
+                            uint32_t *edx) {
+
+    struct req_cpuid req = {.eax = leaf, .ebx = 0, .ecx = 0, .edx = 0};
+
+    if (ioctl(fd_pi, IOCTL_CPUID, &req) < 0) {
+        perror("Failed to CPUID\n");
+    }
+
+    if (eax) {
+        *eax = req.eax;
+    }
+    if (ebx) {
+        *ebx = req.ebx;
+    }
+    if (ecx) {
+        *ecx = req.ecx;
+    }
+    if (edx) {
+        *edx = req.edx;
     }
 }
 #endif

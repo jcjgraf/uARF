@@ -46,36 +46,30 @@ static inline void prefetchnta(const void *p) {
 
 static inline void cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
                          uint32_t *edx) {
-    asm volatile("cpuid"
-                 : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
-                 : "0"(leaf), "1"(*ebx), "2"(*ecx), "3"(*edx));
+    pi_cpuid(leaf, eax, ebx, ecx, edx);
 }
 
 static inline uint32_t cpuid_eax(uint32_t leaf) {
-    uint32_t eax = 0, ign = 0;
-
-    cpuid(leaf, &eax, &ign, &ign, &ign);
+    uint32_t eax;
+    cpuid(leaf, &eax, NULL, NULL, NULL);
     return eax;
 }
 
 static inline uint32_t cpuid_ebx(uint32_t leaf) {
-    uint32_t ebx = 0, ign = 0;
-
-    cpuid(leaf, &ign, &ebx, &ign, &ign);
+    uint32_t ebx;
+    cpuid(leaf, NULL, &ebx, NULL, NULL);
     return ebx;
 }
 
 static inline uint32_t cpuid_ecx(uint32_t leaf) {
-    uint32_t ecx = 0, ign = 0;
-
-    cpuid(leaf, &ign, &ign, &ecx, &ign);
+    uint32_t ecx;
+    cpuid(leaf, NULL, NULL, &ecx, NULL);
     return ecx;
 }
 
 static inline uint32_t cpuid_edx(uint32_t leaf) {
-    uint32_t edx = 0, ign = 0;
-
-    cpuid(leaf, &ign, &ign, &ign, &edx);
+    uint32_t edx;
+    cpuid(leaf, NULL, NULL, NULL, &edx);
     return edx;
 }
 
@@ -86,6 +80,15 @@ static inline uint64_t rdmsr(uint32_t msr_idx) {
 static inline void wrmsr(uint32_t msr_idx, uint64_t value) {
     pi_wrmsr(msr_idx, value);
 }
+
+#define MSR_PRET_CMD                0x49
+#define MSR_PRET_CMD__IBPB          BIT(1)
+#define MSR_EFER                    0x80
+#define MSR_EFER__AUTOMATIC_IBRS_EN BIT(21)
+
+#define IBPB()          wrmsr(MSR_PRET_CMD, MSR_PRET_CMD__IBPB);
+#define AUTO_IBRS_ON()  wrmsr(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+#define AUTO_IBRS_OFF() wrmsr(MSR_EFER, 0);
 
 static inline void invlpg(void *addr) {
     pi_invlpg(_ul(addr));

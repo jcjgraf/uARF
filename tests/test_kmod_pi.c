@@ -115,10 +115,34 @@ TEST_CASE(flush_tlb) {
     TEST_PASS();
 }
 
+TEST_CASE(cpuid) {
+    pi_init();
+
+    uint32_t eax, ebx, ecx, edx;
+
+    uint32_t leaf = 0x80000021;
+
+    cpuid(leaf, &eax, &ebx, &ecx, &edx);
+
+    LOG_DEBUG("EAX: %x\n", eax);
+    LOG_DEBUG("EBX: %x\n", ebx);
+    LOG_DEBUG("ECX: %x\n", ecx);
+    LOG_DEBUG("EDX: %x\n", edx);
+
+    TEST_ASSERT(cpuid_eax(leaf) == eax);
+    TEST_ASSERT(cpuid_ebx(leaf) == ebx);
+    TEST_ASSERT(cpuid_ecx(leaf) == ecx);
+    TEST_ASSERT(cpuid_edx(leaf) == edx);
+
+    pi_deinit();
+    TEST_PASS();
+}
+
 TEST_SUITE() {
     RUN_TEST_CASE(rdmsr_wrmsr);
     RUN_TEST_CASE(invlpg);
     RUN_TEST_CASE(flush_tlb);
+    RUN_TEST_CASE(cpuid);
 
     return 0;
 }
