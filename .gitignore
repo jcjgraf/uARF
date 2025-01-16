@@ -14,3 +14,5 @@ modules.order
 scripts/busybox
 scripts/initramfs
 scripts/bzImage
+
+compile_commands*.json
