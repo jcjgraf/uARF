@@ -43,7 +43,7 @@ LIBRARY := lib$(LIBRARY_NAME).a
 
 ifneq ($(TESTCASE),)
 TESTCASE_BASE := $(uARF_TEST)/$(TESTCASE)
-TESTCASE_BIN := $(TESTCASE).bin
+TESTCASE_BIN := $(notdir $(TESTCASE)).bin
 TESTCASE_C := $(TESTCASE_BASE).c
 TESTCASE_H := $(wildcard $(TESTCASE_BASE).h)
 TESTCASE_ASM := $(wildcard $(TESTCASE_BASE)_asm.S)
@@ -84,11 +84,11 @@ clean:
 	$(VERBOSE) find $(uARF_ROOT) -name $(LIBRARY) -delete
 	$(VERBOSE) find $(uARF_ROOT) -name \*.bin -delete
 
-compile_commands_user.json: clean
+compile_commands_user.json: #clean
 	@echo "Create $@"
 	$(VERBOSE) bear --output $@ -- $(MAKE) $(LIBRARY) test
 
-compile_commands_kmods.json: kmods_clean
+compile_commands_kmods.json: #kmods_clean
 	@echo "Create $@"
 	$(VERBOSE) bear --output $@ -- $(MAKE) kmods
 
