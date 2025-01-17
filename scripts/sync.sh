@@ -122,13 +122,25 @@ if [ "$daemon" = true ]; then
         log "Start sync"
         timeout $SYNC_TIMEOUT $sync_cmd
 
-        if [ $? -eq 124 ]; then
+        retVal=$?
+
+        if [ $retVal -eq 124 ]; then
             log_err "Timeout triggered ($SYNC_TIMEOUT seconds)! Retry..."
             continue
         fi
 
         if [ $? -eq 125 ]; then
-            log_err "timeout utility failed !"
+            log_err "timeout utility failed, exit"
+            exit $?
+        fi
+
+        if [ $retVal -eq 125 ]; then
+            log_err "timeout utility failed, exit"
+            exit $?
+        fi
+
+        if [ $retVal -ne 0 ]; then
+            log_err "Rsync Error Encountered: $retVal, exit"
             exit $?
         fi
 
@@ -140,7 +152,7 @@ if [ "$daemon" = true ]; then
         inotifywait -e modify -e delete_self -e move_self $watch_files
 
         if [ $? -ne 0 ]; then
-            log_err "inotifywait failed"
+            log_err "inotifywait failed, exit"
             exit $?
         fi
     done
