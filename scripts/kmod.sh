@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Reload the kernel module provided as an argument.
 # It is assumed that the kernel module resides at KMOD_BASE/$1/$1.ko
