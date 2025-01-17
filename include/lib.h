@@ -73,22 +73,33 @@ static inline uint32_t cpuid_edx(uint32_t leaf) {
     return edx;
 }
 
-static inline uint64_t rdmsr(uint32_t msr_idx) {
-    return pi_rdmsr(msr_idx);
+static inline uint64_t rdmsr(uint32_t msr) {
+    return pi_rdmsr(msr);
 }
 
-static inline void wrmsr(uint32_t msr_idx, uint64_t value) {
-    pi_wrmsr(msr_idx, value);
+// Writes `value` into `msr`
+static inline void wrmsr(uint32_t msr, uint64_t value) {
+    pi_wrmsr(msr, value);
 }
 
-#define MSR_PRET_CMD                0x49
-#define MSR_PRET_CMD__IBPB          BIT(1)
-#define MSR_EFER                    0x80
-#define MSR_EFER__AUTOMATIC_IBRS_EN BIT(21)
+// Set bit at index `bit` of `ms` to 1
+static inline void wrmsr_set(uint64_t msr, size_t bit) {
+    wrmsr(msr, BIT_SET(rdmsr(msr), bit));
+}
 
-#define IBPB()          wrmsr(MSR_PRET_CMD, MSR_PRET_CMD__IBPB);
-#define AUTO_IBRS_ON()  wrmsr(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
-#define AUTO_IBRS_OFF() wrmsr(MSR_EFER, 0);
+// Set bit at index `bit` of `msr` to 0
+static inline void wrmsr_clear(uint64_t msr, size_t bit) {
+    wrmsr(msr, BIT_CLEAR(rdmsr(msr), bit));
+}
+
+#define MSR_PRED_CMD                0x00000049
+#define MSR_PRED_CMD__IBPB          0
+#define MSR_EFER                    0xc0000080
+#define MSR_EFER__AUTOMATIC_IBRS_EN 21
+
+#define IBPB()          wrmsr_set(MSR_PRED_CMD, MSR_PRED_CMD__IBPB);
+#define AUTO_IBRS_ON()  wrmsr_set(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+#define AUTO_IBRS_OFF() wrmsr_clear(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
 
 static inline void invlpg(void *addr) {
     pi_invlpg(_ul(addr));
@@ -96,6 +107,12 @@ static inline void invlpg(void *addr) {
 
 static inline void flush_tlb(void) {
     pi_flush_tlb();
+}
+
+static inline unsigned int get_cpl(void) {
+    unsigned int cs;
+    asm("mov %%cs, %0" : "=r"(cs));
+    return cs & 0x03;
 }
 
 #define ASSERT(cond)                                                                     \

@@ -44,6 +44,12 @@
 // A one-bit mask at bit n
 #define BIT(n) BIT_T(uint64_t, n)
 
+// Set bit at index `bit` in `value` to 1
+#define BIT_SET(value, bit) ((value) | BIT(bit))
+
+// Set bit at index `bit` in `value` to 0
+#define BIT_CLEAR(value, bit) ((value) & ~BIT(bit))
+
 // Align an address, rounding the address down
 #define ALIGN_DOWN(addr, align) ((_ul(addr)) & ~((_ul(align)) - 1))
 
