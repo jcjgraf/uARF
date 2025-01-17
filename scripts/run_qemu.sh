@@ -53,7 +53,7 @@ qemu-system-x86_64 \
     -kernel "$KERNEL" \
     -initrd "$INITRAMFS" \
     -nographic \
-    -append "console=ttyS0 nokaslr" \
+    -append "console=ttyS0 nokaslr nosmep nosmap" \
     -m 512 \
     -cpu host \
     -enable-kvm \
