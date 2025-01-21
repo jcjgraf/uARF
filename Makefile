@@ -47,7 +47,7 @@ TESTCASE_BIN := $(notdir $(TESTCASE)).bin
 TESTCASE_C := $(TESTCASE_BASE).c
 TESTCASE_H := $(wildcard $(TESTCASE_BASE).h)
 TESTCASE_ASM := $(wildcard $(TESTCASE_BASE)_asm.S)
-# OBJS += $(TESTCASE_C:%.c=%.o) $(TESTCASE_ASM:%.S=%.o)
+TESTCASE_OBJS := $(TESTCASE_C:%.c=%.o) $(TESTCASE_ASM:%.S=%.o)
 endif
 
 ifneq ($(V), 1)
@@ -72,7 +72,7 @@ DEPFILES := $(OBJS:.o=.d)
 -include $(wildcard $(DEPFILES))
 
 .PHONY: test
-test: $(TESTCASE_C) $(OBJS)
+test: $(TESTCASE_C) $(OBJS) $(TESTCASE_OBJS)
 	@echo "CC Test " $(TESTCASE)
 	$(VERBOSE) $(CC) $(CFLAGS) -o $(TESTCASE_BIN) $(filter %.o, $^)
 
