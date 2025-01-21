@@ -13,12 +13,12 @@
 
 #include "flush_reload.h"
 #include "jita.h"
+#include "kmod/pi.h"
+#include "kmod/rap.h"
 #include "lib.h"
 #include "log.h"
 #include "spec_lib.h"
 #include "test.h"
-#include "uarf_pi/uarf_pi.h"
-#include "uarf_rap/uarf_rap.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -54,11 +54,11 @@ void run_spec(void *arg) {
                  : "rax", "rdx", "rdi", "rsi", "r8", "memory");
 }
 
-static void inline run_spec_user(struct SpecData *data) {
+static inline void run_spec_user(struct SpecData *data) {
     run_spec(data);
 }
 
-static void inline run_spec_kernel(struct SpecData *data) {
+static inline void run_spec_kernel(struct SpecData *data) {
     rap_call(run_spec, data);
 }
 
