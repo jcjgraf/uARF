@@ -9,7 +9,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#include "uarf_pi.h"
+#include "pi.h"
 
 static int major;
 static struct class *cls;
@@ -130,7 +130,7 @@ static char *devnode(struct device *dev, umode_t *mode) {
 static int __init pi_init(void) {
     pr_debug("pi module initiated\n");
 
-    major = register_chrdev(0, DEVICE_NAME, &fops);
+    major = register_chrdev(0, "pi", &fops);
     if (major < 0) {
         pr_alert("Failed to register device\n");
         return major;
@@ -138,24 +138,24 @@ static int __init pi_init(void) {
     pr_debug("Registered device with major number %d\n", major);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-    cls = class_create(DEVICE_NAME);
+    cls = class_create("pi");
 #else
-    cls = class_create(THIS_MODULE, DEVICE_NAME);
+    cls = class_create(THIS_MODULE, "pi");
 #endif
 
     if (IS_ERR(cls)) {
         pr_alert("Failed to create class\n");
-        unregister_chrdev(major, DEVICE_NAME);
+        unregister_chrdev(major, "pi");
         return PTR_ERR(cls);
     }
 
     cls->devnode = devnode;
 
-    dev = device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
+    dev = device_create(cls, NULL, MKDEV(major, 0), NULL, "pi");
     if (IS_ERR(dev)) {
         pr_alert("Failed to create device\n");
         class_destroy(cls);
-        unregister_chrdev(major, DEVICE_NAME);
+        unregister_chrdev(major, "pi");
         return PTR_ERR(dev);
     }
 
@@ -168,7 +168,7 @@ static void __exit pi_exit(void) {
 
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
-    unregister_chrdev(major, DEVICE_NAME);
+    unregister_chrdev(major, "pi");
 
     pr_info("Device exited successfully\n");
 }

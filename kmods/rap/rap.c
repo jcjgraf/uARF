@@ -4,7 +4,7 @@
  * TODO: Fails when the kernel pagefaults while running in kernel mode
  */
 
-#include "uarf_rap.h"
+#include "rap.h"
 #include "linux/fs.h"
 #include <linux/device.h>
 #include <linux/errno.h>
@@ -79,36 +79,36 @@ static char *devnode(struct device *dev, umode_t *mode) {
 static int __init rap_init(void) {
     pr_debug("rap module init\n");
 
-    major = register_chrdev(0, DEVICE_NAME, &fops);
+    major = register_chrdev(0, "rap", &fops);
     if (major < 0) {
-        pr_alert("Failed to register device %s\n", DEVICE_NAME);
+        pr_alert("Failed to register device %s\n", "rap");
         return major;
     }
     pr_debug("Registered device with major number %d\n", major);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-    cls = class_create(DEVICE_NAME);
+    cls = class_create("rap");
 #else
-    cls = class_create(THIS_MODULE, DEVICE_NAME);
+    cls = class_create(THIS_MODULE, "rap");
 #endif
 
     if (IS_ERR(cls)) {
-        pr_alert("Failed to create class for device %s\n", DEVICE_NAME);
-        unregister_chrdev(major, DEVICE_NAME);
+        pr_alert("Failed to create class for device %s\n", "rap");
+        unregister_chrdev(major, "rap");
         return PTR_ERR(cls);
     }
 
     cls->devnode = devnode;
 
-    dev = device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
+    dev = device_create(cls, NULL, MKDEV(major, 0), NULL, "rap");
     if (IS_ERR(dev)) {
-        pr_alert("Failed to create device for device %s\n", DEVICE_NAME);
+        pr_alert("Failed to create device for device %s\n", "rap");
         class_destroy(cls);
-        unregister_chrdev(major, DEVICE_NAME);
+        unregister_chrdev(major, "rap");
         return PTR_ERR(dev);
     }
 
-    pr_info("Device %s initialized successfully\n", DEVICE_NAME);
+    pr_info("Device %s initialized successfully\n", "rap");
 
     cr4 = __read_cr4();
     if (cr4 & (X86_CR4_SMEP | X86_CR4_SMAP)) {
@@ -122,8 +122,8 @@ static void __exit rap_exit(void) {
     pr_debug("rap module exit\n");
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
-    unregister_chrdev(major, DEVICE_NAME);
-    pr_info("Device %s exited successfully\n", DEVICE_NAME);
+    unregister_chrdev(major, "rap");
+    pr_info("Device %s exited successfully\n", "rap");
 }
 
 module_init(rap_init);

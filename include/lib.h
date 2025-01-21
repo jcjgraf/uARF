@@ -1,7 +1,7 @@
 #pragma once
 
 #include "compiler.h"
-#include "uarf_pi/uarf_pi.h"
+#include "kmod/pi.h"
 #include <stdint.h>
 #include <stdlib.h>
 

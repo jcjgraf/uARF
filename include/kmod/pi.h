@@ -1,12 +1,10 @@
 #pragma once
-
-#ifdef __KERNEL__
-#include <linux/types.h>
-#else
+#include <fcntl.h>
 #include <stdint.h>
-#endif
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
-#define DEVICE_NAME     "uarf_pi"
 #define IOCTL_RDMSR     _IOWR('m', 1, struct req_msr)
 #define IOCTL_WRMSR     _IOWR('m', 2, struct req_msr)
 #define IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
@@ -26,16 +24,10 @@ struct req_cpuid {
     uint32_t edx;
 };
 
-#ifndef __KERNEL__
-#include <fcntl.h>
-#include <stdio.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-
 static int fd_pi;
 
 static inline void pi_init() {
-    fd_pi = open("/dev/" DEVICE_NAME, O_RDONLY, 0777);
+    fd_pi = open("/dev/pi", O_RDONLY, 0777);
     if (fd_pi == -1) {
         printf("uarf_pi module missing");
     }
@@ -99,4 +91,3 @@ static inline void pi_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_
         *edx = req.edx;
     }
 }
-#endif
