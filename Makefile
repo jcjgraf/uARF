@@ -84,6 +84,11 @@ clean:
 	$(VERBOSE) find $(uARF_ROOT) -name $(LIBRARY) -delete
 	$(VERBOSE) find $(uARF_ROOT) -name \*.bin -delete
 
+.PHONY: kmods
+kmods:
+	@echo "Building kmods with kdir $(KDIR)"
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR)
+
 .PHONY: kmods_clean
 kmods_clean:
 	@echo "Clean KMOD"
