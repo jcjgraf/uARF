@@ -47,7 +47,7 @@ typedef struct {
     union {
         char *ptr;
         uint64_t addr;
-        void (*f)();
+        void (*f)(void);
     };
     union {
         char *end_ptr;

@@ -26,14 +26,14 @@ struct req_cpuid {
 
 static int fd_pi;
 
-static inline void pi_init() {
+static inline void pi_init(void) {
     fd_pi = open("/dev/pi", O_RDONLY, 0777);
     if (fd_pi == -1) {
         printf("uarf_pi module missing");
     }
 }
 
-static inline int pi_deinit() {
+static inline int pi_deinit(void) {
     return close(fd_pi);
 }
 

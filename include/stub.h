@@ -23,7 +23,7 @@ typedef struct stub {
     union {
         char *ptr;
         uint64_t addr;
-        void (*f)();
+        void (*f)(void);
     };
 
     // End of stub, incremented as new snippets are added
