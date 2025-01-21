@@ -18,7 +18,7 @@ static struct device *dev;
 static unsigned long cr4;
 
 static long rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-    pr_info("IOCTL received");
+    pr_info("RAP IOCTL received");
 
     switch (cmd) {
     case IOCTL_RAP: {

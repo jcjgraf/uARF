@@ -28,7 +28,7 @@ static inline void _write_cr3(unsigned long cr3) {
 }
 
 static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-    pr_info("IOCTL received\n");
+    pr_info("PI IOCTL received\n");
 
     switch (cmd) {
     case IOCTL_RDMSR: {
