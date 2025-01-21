@@ -12,6 +12,7 @@
 
 #ifndef __ASSEMBLY__
 #include "compiler.h"
+#include "kmod/rap.h"
 #include "lib.h"
 #include <stdint.h>
 

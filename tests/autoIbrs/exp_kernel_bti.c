@@ -43,25 +43,6 @@ struct TestCaseData {
     bool signal_in_kernel;
 };
 
-void run_spec(void *arg) {
-    struct SpecData *data = (struct SpecData *) arg;
-
-    asm volatile("lea return_here%=, %%rax\n\t"
-                 "pushq %%rax\n\t"
-                 "jmp *%0\n\t"
-                 "return_here%=:\n\t" ::"r"(data->spec_prim_p),
-                 "c"(data)
-                 : "rax", "rdx", "rdi", "rsi", "r8", "memory");
-}
-
-static inline void run_spec_user(struct SpecData *data) {
-    run_spec(data);
-}
-
-static inline void run_spec_kernel(struct SpecData *data) {
-    rap_call(run_spec, data);
-}
-
 TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
@@ -73,10 +54,10 @@ TEST_CASE_ARG(basic, arg) {
     stub_t stub_gadget = stub_init();
     stub_t stub_dummy = stub_init();
 
-    void (*train_f)(struct SpecData *data) =
-        data->train_in_kernel ? run_spec_kernel : run_spec_user;
-    void (*signal_f)(struct SpecData *data) =
-        data->signal_in_kernel ? run_spec_kernel : run_spec_user;
+    void (*train_f)(void *func_p, void *data) =
+        data->train_in_kernel ? rap_call : rup_call;
+    void (*signal_f)(void *func_p, void *data) =
+        data->signal_in_kernel ? rap_call : rup_call;
 
     IBPB();
 
@@ -110,23 +91,29 @@ TEST_CASE_ARG(basic, arg) {
 
         for (size_t r = 0; r < data->num_rounds; r++) {
 
+            // Ensure the required data is paged, as when executing in supervisor mode we
+            // cannot handle pagefaults => error
+            *(volatile char *) run_spec;
+            *(volatile char *) train_data.spec_prim_p;
+            **(volatile char **) train_data.spec_dst_p_p;
+            *(volatile char *) train_data.fr_buf_p;
+            *(volatile char *) signal_data.spec_prim_p;
+            **(volatile char **) signal_data.spec_dst_p_p;
+            *(volatile char *) signal_data.fr_buf_p;
+
             for (size_t t = 0; t < data->num_train_rounds; t++) {
                 asm("train:\n\t");
-                // rap_call(run_spec, &train_data);
-                // run_spec(&train_data);
-                train_f(&train_data);
+                train_f(run_spec, &train_data);
             }
 
             fr_flush(&fr);
             clflush_spec_dst(&signal_data);
-            invlpg_spec_dst(&signal_data);
+            // invlpg_spec_dst(&signal_data);
             prefetcht0(&train_data);
 
             // TODO: disable interrupts and preemption
             asm("signal:\n\t");
-            // rap_call(run_spec, &signal_data);
-            // run_spec(&signal_data);
-            signal_f(&signal_data);
+            signal_f(run_spec, &signal_data);
 
             fr_reload_binned(&fr, r);
         }
@@ -134,6 +121,8 @@ TEST_CASE_ARG(basic, arg) {
         jita_deallocate(data->jita_gadget, &stub_gadget);
         jita_deallocate(data->jita_dummy, &stub_dummy);
     }
+
+    LOG_INFO("Done\n");
 
     fr_print(&fr);
 
@@ -181,7 +170,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_jmp,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -193,7 +182,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_jmp,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -205,7 +194,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_jmp,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -217,7 +206,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_jmp,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -229,7 +218,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_call,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -241,7 +230,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_call,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -253,7 +242,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_call,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
@@ -265,7 +254,7 @@ TEST_SUITE() {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
-        .num_train_rounds = 100,
+        .num_train_rounds = 1,
         .jita_main = &jita_main_call,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
