@@ -45,4 +45,7 @@ static inline void prefetcht0_spec_dst(const struct SpecData *data) {
     prefetcht0(_ptr(*(uint64_t *) data->spec_dst_p_p));
 }
 
+// Run the speculation primitive described by SpecData.
+void run_spec(void *arg);
+
 #endif // __ASSEMBLY__
