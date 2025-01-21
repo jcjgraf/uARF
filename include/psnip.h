@@ -22,6 +22,24 @@
         .end_ptr = psnip_end(snip_name),                                                 \
     }
 
+// clang-format off
+#define psnip_declare_define(name, str)                                                  \
+    extern char __text psnip_start(name)[];                                              \
+    extern char __text psnip_end(name)[];                                                \
+    asm(".pushsection .text\n\t"                                                         \
+    ".align 0x1000\n\t"                                                                  \
+    STR(psnip_start(name)) ":\n\t"                                                       \
+    str                                                                                  \
+    STR(psnip_end(name)) ":\n\t"                                                         \
+    "nop\n\t"                                                                            \
+    ".popsection\n\t"                                                                    \
+    );                                                                                   \
+    psnip_t __data name = {                                                              \
+        .ptr = psnip_start(name),                                                        \
+        .end_ptr = psnip_end(name),                                                      \
+    }
+// clang-format on
+
 /**
  * Holds pointers to start and end of a snippet
  */
