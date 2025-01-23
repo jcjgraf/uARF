@@ -45,8 +45,9 @@ TEST_CASE(globally_allocated_jita) {
 // Use a global jita and allocate to local stub
 TEST_CASE(locally_allocated_jita) {
 
-    stub_t local_stub;
+    stub_t local_stub = stub_init();
     jita_allocate(&jita_get_inc3, &local_stub, rand47());
+    TEST_ASSERT(local_stub.size > 0);
 
     int (*a)(int) = (int (*)(int)) local_stub.ptr;
     int var = a(5);
@@ -61,8 +62,8 @@ TEST_CASE(locally_allocated_jita) {
 // Local jita
 TEST_CASE(local_jita) {
 
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t local_stub;
+    jita_ctxt_t ctxt = jita_init();
+    stub_t local_stub = stub_init();
 
     jita_push_psnip(&ctxt, &psnip_inc);
     jita_push_psnip(&ctxt, &psnip_inc);
@@ -84,8 +85,8 @@ TEST_CASE(local_jita) {
 // Clone global jita and extend locally.
 TEST_CASE(global_jita_clone_local) {
 
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t local_stub;
+    jita_ctxt_t ctxt = jita_init();
+    stub_t local_stub = stub_init();
 
     jita_clone(&jita_inc3, &ctxt);
 
@@ -112,9 +113,9 @@ TEST_CASE(global_jita_clone_local) {
 // Test vsnip_dump_stub
 TEST_CASE(vsnip_dump_stub) {
 
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t local_stub;
-    stub_t dump_stub;
+    jita_ctxt_t ctxt = jita_init();
+    stub_t local_stub = stub_init();
+    stub_t dump_stub = stub_init();
 
     jita_clone(&jita_get_inc3, &ctxt);
     jita_push_vsnip_dump_stub(&ctxt, &dump_stub);
@@ -141,9 +142,9 @@ TEST_CASE(vsnip_dump_stub) {
 TEST_CASE_ARG(vsnip_align, arg) {
     uint64_t alignment = _ul(arg);
 
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t local_stub;
-    stub_t dump_stub;
+    jita_ctxt_t ctxt = jita_init();
+    stub_t local_stub = stub_init();
+    stub_t dump_stub = stub_init();
 
     jita_push_psnip(&ctxt, &psnip_inc);
     jita_push_vsnip_align(&ctxt, alignment);
@@ -182,10 +183,10 @@ TEST_CASE_ARG(vsnip_align, arg) {
 
 // Aligning an already aligned address does not add more padding
 TEST_CASE(vsnip_align_aligned) {
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t local_stub;
-    stub_t dump_stub1;
-    stub_t dump_stub2;
+    jita_ctxt_t ctxt = jita_init();
+    stub_t local_stub = stub_init();
+    stub_t dump_stub1 = stub_init();
+    stub_t dump_stub2 = stub_init();
 
     jita_clone(&jita_get_inc3, &ctxt);
 
@@ -209,11 +210,11 @@ TEST_CASE(vsnip_align_aligned) {
 
 // Test vsnip_jmp_near_abs
 TEST_CASE(vsnip_jmp_near_abs) {
-    jita_ctxt_t jmp_ctxt = jita_get_ctxt();
-    jita_ctxt_t target_ctxt = jita_get_ctxt();
+    jita_ctxt_t jmp_ctxt = jita_init();
+    jita_ctxt_t target_ctxt = jita_init();
 
-    stub_t jmp_stub;
-    stub_t target_stub;
+    stub_t jmp_stub = stub_init();
+    stub_t target_stub = stub_init();
 
     uint64_t jmp_src_addr = rand47();
     uint64_t jmp_target_addr = jmp_src_addr ^ (rand() & 0xFFFFFF);
@@ -241,12 +242,12 @@ TEST_CASE(vsnip_jmp_near_abs) {
 
 // Test vsnip_jmp_near_rel having the offset be inclusive
 TEST_CASE(vsnip_jmp_near_rel_inclusive) {
-    jita_ctxt_t jmp_ctxt = jita_get_ctxt();
-    jita_ctxt_t target_ctxt = jita_get_ctxt();
+    jita_ctxt_t jmp_ctxt = jita_init();
+    jita_ctxt_t target_ctxt = jita_init();
 
-    stub_t jmp_stub;
-    stub_t target_stub;
-    stub_t jmp_dump;
+    stub_t jmp_stub = stub_init();
+    stub_t target_stub = stub_init();
+    stub_t jmp_dump = stub_init();
 
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
@@ -278,12 +279,12 @@ TEST_CASE(vsnip_jmp_near_rel_inclusive) {
 
 // Test vsnip_jmp_near_rel having the offset be exclusive
 TEST_CASE(vsnip_jmp_near_rel_exclusive) {
-    jita_ctxt_t jmp_ctxt = jita_get_ctxt();
-    jita_ctxt_t target_ctxt = jita_get_ctxt();
+    jita_ctxt_t jmp_ctxt = jita_init();
+    jita_ctxt_t target_ctxt = jita_init();
 
-    stub_t jmp_stub;
-    stub_t target_stub;
-    stub_t jmp_dump;
+    stub_t jmp_stub = stub_init();
+    stub_t target_stub = stub_init();
+    stub_t jmp_dump = stub_init();
 
     uint64_t jmp_src_addr = rand47();
     uint32_t offset = rand() & 0xFFFFFF;
@@ -316,11 +317,11 @@ TEST_CASE(vsnip_jmp_near_rel_exclusive) {
 }
 
 // Test vsnip_fill
-static unsigned long __text vsnip_fill() {
-    jita_ctxt_t ctxt = jita_get_ctxt();
-    stub_t stub;
-    stub_t dump_before;
-    stub_t dump_after;
+TEST_CASE(vsnip_fill) {
+    jita_ctxt_t ctxt = jita_init();
+    stub_t stub = stub_init();
+    stub_t dump_before = stub_init();
+    stub_t dump_after = stub_init();
 
     jita_push_psnip(&ctxt, &psnip_inc);
     jita_push_vsnip_dump_stub(&ctxt, &dump_before);
