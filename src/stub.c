@@ -6,6 +6,11 @@
 #include "page.h"
 #include <string.h>
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#define LOG_TAG LOG_TAG_STUB
+#endif
+
 void stub_add(stub_t *stub, uint64_t start, uint64_t size) {
     LOG_TRACE("(%p, 0x%lx, %lu)\n", stub, start, size);
 
@@ -24,6 +29,8 @@ void stub_add(stub_t *stub, uint64_t start, uint64_t size) {
     while (stub_size_free(stub) < size) {
         stub_extend(stub);
     }
+
+    LOG_DEBUG("Stub has not size %luB\n", stub->size);
 
     LOG_DEBUG("Copy code of size %lu to 0x%lx\n", size, stub->end_addr);
 
@@ -85,12 +92,12 @@ uint64_t stub_size_free(stub_t *stub) {
     ASSERT(stub->base_ptr <= stub->ptr);
     ASSERT(stub->ptr <= stub->end_ptr);
 
+    // Happens when the stub is first assigned to
     if (stub->size == 0) {
         return 0;
     }
 
     uint64_t stub_end = stub->base_addr + stub->size;
-
     ASSERT(stub_end >= stub->end_addr);
 
     return stub->base_addr + stub->size - stub->end_addr;
