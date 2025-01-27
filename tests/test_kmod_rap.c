@@ -5,8 +5,8 @@
  */
 
 #include "compiler.h"
+#include "kmod/rap.h"
 #include "test.h"
-#include "uarf_rap/uarf_rap.h"
 
 #define ROUNDS 100
 

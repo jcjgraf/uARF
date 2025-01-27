@@ -7,7 +7,7 @@
 #include "lib.h"
 #include "mem.h"
 #include "test.h"
-#include "uarf_pi/uarf_pi.h"
+#include "kmod/pi.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
