@@ -18,7 +18,7 @@ uARF_KMOD := $(uARF_ROOT)/kmods
 CC := gcc
 AR := ar
 
-COMMON_INCLUDES := -I$(uARF_INCL) -I$(uARF_ROOT)
+COMMON_INCLUDES := -I$(uARF_INCL)
 
 # ifdef KTF_ROOT
 # export __KTF__
