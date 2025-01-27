@@ -32,13 +32,15 @@ psnip_declare(dst_dummy, psnip_dst_dummy);
 
 psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
-psnip_declare_define(psnip_test, "ret\n\t");
-
 struct TestCaseData {
 	uint32_t seed;
+	uint32_t num_cands;
+	uint32_t num_rounds;
+	uint32_t num_train_rounds;
 	jita_ctxt_t *jita_main;
 	jita_ctxt_t *jita_gadget;
 	jita_ctxt_t *jita_dummy;
+	bool match_history;
 };
 
 struct GuestData {
@@ -173,57 +175,112 @@ TEST_CASE_ARG(basic, arg)
 
 	fr_reset(&fr);
 
-	jita_allocate(data->jita_main, &stub_main, rand47());
-	jita_allocate(data->jita_gadget, &stub_gadget, rand47());
-	jita_allocate(data->jita_dummy, &stub_dummy, rand47());
+	for (size_t c = 0; c < data->num_cands; c++) {
+		jita_allocate(data->jita_main, &stub_main, rand47());
+		jita_allocate(data->jita_gadget, &stub_gadget, rand47());
+		jita_allocate(data->jita_dummy, &stub_dummy, rand47());
 
-	struct history h1 = get_randomized_history();
+		struct history h1 = get_randomized_history();
 
-	struct SpecData spec_data = {
-		.spec_prim_p = stub_main.addr,
-		.spec_dst_p_p = _ul(&stub_gadget.addr),
-		.fr_buf_p = fr.buf2.addr,
-		.secret = 0,
-		.hist = h1,
-	};
+		struct history h2 =
+			data->match_history ? h1 : get_randomized_history();
 
-	// Create VM
-	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
+		struct SpecData train_data = {
+			.spec_prim_p = stub_main.addr,
+			.spec_dst_p_p = _ul(&stub_gadget.addr),
+			.fr_buf_p = fr.buf2.addr,
+			.secret = 0,
+			.hist = h1,
+		};
 
-	guestData.spec_data = spec_data;
+		struct SpecData signal_data = {
+			.spec_prim_p = stub_main.addr,
+			.spec_dst_p_p = _ul(&stub_dummy.addr),
+			.fr_buf_p = fr.buf.addr,
+			.secret = 1,
+			.hist = h2,
+		};
 
-	// Sync globals
-	sync_global_to_guest(vm, guestData);
-	sync_global_to_guest(vm, stub_main);
-	sync_global_to_guest(vm, stub_gadget);
-	sync_global_to_guest(vm, stub_dummy);
+		for (size_t r = 0; r < data->num_rounds; r++) {
+			for (size_t t = 0; t < data->num_train_rounds; t++) {
+				guestData.spec_data = train_data;
 
-	// Map stubs
-	map_stub_to_guest(vm, &stub_main);
-	map_stub_to_guest(vm, &stub_gadget);
-	map_stub_to_guest(vm, &stub_dummy);
+				// Create VM
+				vm = __vm_create_with_one_vcpu(
+					&vcpu, extra_pages, guest_main);
 
-	// Map other memory
-	map_mem_to_guest(vm, fr.buf.base_addr, fr.buf_size);
-	map_mem_to_guest(vm, fr.buf2.base_addr, fr.buf_size);
-	map_mem_to_guest(vm, fr.res_addr, fr.res_size);
+				// Sync globals
+				sync_global_to_guest(vm, guestData);
+				sync_global_to_guest(vm, stub_main);
+				sync_global_to_guest(vm, stub_gadget);
+				sync_global_to_guest(vm, stub_dummy);
 
-	// Run VM
-	LOG_INFO("Starting VM\n");
-	run_vcpu(vcpu);
-	// run_spec_global();
+				// Map stubs
+				map_stub_to_guest(vm, &stub_main);
+				map_stub_to_guest(vm, &stub_gadget);
+				map_stub_to_guest(vm, &stub_dummy);
 
-	// Cleanup
-	kvm_vm_free(vm);
+				// Map other memory
+				map_mem_to_guest(vm, fr.buf.base_addr,
+						 fr.buf_size);
+				map_mem_to_guest(vm, fr.buf2.base_addr,
+						 fr.buf_size);
+				map_mem_to_guest(vm, fr.res_addr, fr.res_size);
 
-	fr_flush(&fr);
+				// Run VM
+				// run_vcpu(vcpu);
+				run_spec_global();
 
-	fr_reload(&fr);
-	jita_deallocate(data->jita_main, &stub_main);
-	jita_deallocate(data->jita_gadget, &stub_gadget);
-	jita_deallocate(data->jita_dummy, &stub_dummy);
+				// Trash VM (TODO: recycle VM somehow)
+				kvm_vm_free(vm);
+			}
 
-	LOG_INFO("Done\n");
+			fr_flush(&fr);
+
+			// clflush_spec_dst(&signal_data);
+			// invlpg_spec_dst(&signal_data);
+			// prefetcht0(&train_data);
+			//
+			// // TODO: disable interrupts and preemption
+			guestData.spec_data = signal_data;
+
+			// Create VM
+			vm = __vm_create_with_one_vcpu(&vcpu, extra_pages,
+						       guest_main);
+
+			// Sync globals
+			sync_global_to_guest(vm, guestData);
+			sync_global_to_guest(vm, stub_main);
+			sync_global_to_guest(vm, stub_gadget);
+			sync_global_to_guest(vm, stub_dummy);
+
+			// Map stubs
+			map_stub_to_guest(vm, &stub_main);
+			map_stub_to_guest(vm, &stub_gadget);
+			map_stub_to_guest(vm, &stub_dummy);
+
+			// Map other memory
+			map_mem_to_guest(vm, fr.buf.base_addr, fr.buf_size);
+			map_mem_to_guest(vm, fr.buf2.base_addr, fr.buf_size);
+			map_mem_to_guest(vm, fr.res_addr, fr.res_size);
+
+			// Run VM
+			// run_vcpu(vcpu);
+			run_spec_global();
+
+			// Trash VM (TODO: recycle VM somehow)
+			kvm_vm_free(vm);
+
+			fr_reload_binned(&fr, r);
+		}
+
+		fr_flush(&fr);
+
+		fr_reload(&fr);
+		jita_deallocate(data->jita_main, &stub_main);
+		jita_deallocate(data->jita_gadget, &stub_gadget);
+		jita_deallocate(data->jita_dummy, &stub_dummy);
+	}
 
 	fr_print(&fr);
 
@@ -233,42 +290,86 @@ TEST_CASE_ARG(basic, arg)
 }
 
 static struct TestCaseData data1;
+static struct TestCaseData data2;
+static struct TestCaseData data3;
+static struct TestCaseData data4;
 
 TEST_SUITE()
 {
+	log_system_level = LOG_LEVEL_INFO;
+
 	uint32_t seed = get_seed();
 	LOG_INFO("Using seed: %u\n", seed);
 	pi_init();
 	rap_init();
 
-	jita_ctxt_t jita_main = jita_init();
+	jita_ctxt_t jita_main_call = jita_init();
+	jita_ctxt_t jita_main_jmp = jita_init();
 	jita_ctxt_t jita_gadget = jita_init();
 	jita_ctxt_t jita_dummy = jita_init();
 
-	// jita_push_psnip(&jita_main_jmp, &psnip_history);
-	// jita_push_psnip(&jita_main_jmp, &psnip_history);
-	// jita_push_psnip(&jita_main_jmp, &psnip_history);
-	// jita_push_psnip(&jita_main_jmp, &psnip_history);
-	// jita_push_psnip(&jita_main_jmp, &psnip_history);
+	jita_push_psnip(&jita_main_call, &psnip_history);
+	jita_push_psnip(&jita_main_call, &psnip_history);
+	jita_push_psnip(&jita_main_call, &psnip_history);
+	jita_push_psnip(&jita_main_call, &psnip_history);
+	jita_push_psnip(&jita_main_call, &psnip_history);
 
-	// jita_clone(&jita_main_jmp, &jita_main_call);
+	jita_clone(&jita_main_call, &jita_main_jmp);
 
-	// jita_push_psnip(&jita_main_jmp, &psnip_src_call_ind);
-	// jita_push_psnip(&jita_main, &psnip_src_jmp_ind);
-
-	jita_push_psnip(&jita_main, &psnip_jmp);
+	jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
+	jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
 
 	jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
 	jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
 
-	data1 = (struct TestCaseData){
-		.seed = seed++,
-		.jita_main = &jita_main,
-		.jita_gadget = &jita_gadget,
-		.jita_dummy = &jita_dummy,
-	};
+	    data1 = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 10,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .match_history = true,
+    };
 
-	RUN_TEST_CASE_ARG(basic, &data1, "UU, jmp");
+    data2 = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .match_history = false,
+    };
+
+    data3 = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .match_history = true,
+    };
+
+    data4 = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .match_history = false,
+    };
+
+    RUN_TEST_CASE_ARG(basic, &data1);
+    // RUN_TEST_CASE_ARG(basic, &data2);
+    // RUN_TEST_CASE_ARG(basic, &data3);
+    // RUN_TEST_CASE_ARG(basic, &data4);
 
 	pi_deinit();
 	rap_deinit();
