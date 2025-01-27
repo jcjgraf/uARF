@@ -30,7 +30,7 @@ void stub_add(stub_t *stub, uint64_t start, uint64_t size) {
         stub_extend(stub);
     }
 
-    LOG_DEBUG("Stub has not size %luB\n", stub->size);
+    LOG_DEBUG("Stub has now size %luB\n", stub->size);
 
     LOG_DEBUG("Copy code of size %lu to 0x%lx\n", size, stub->end_addr);
 

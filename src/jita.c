@@ -91,6 +91,10 @@ void jita_allocate(jita_ctxt_t *ctxt, stub_t *stub, uint64_t addr) {
     stub->addr = addr;
     stub->end_addr = addr;
 
+    if (ctxt->n_snips == 0) {
+        LOG_WARNING("No stubs have been added to the jits!\nIs this really what you want?\n");
+    }
+
     LOG_DEBUG("Create new stub with:\n"
               "\tbase_addr: 0x%lx\n\taddr: 0x%lx\n\tend_addr: 0x%lx\n",
               stub->base_addr, stub->addr, stub->end_addr);
