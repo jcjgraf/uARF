@@ -148,9 +148,10 @@ check_config_option WATCH
 # Composes the rsync command, based on the cli arguments
 function get_sync_cmd() {
     log "Composing sync command"
-    local cmd=(rsync --info=NAME -a)
+    local cmd=(rsync --info=NAME -a --no-links)
 
-    if [ -v "$EXCLUDE_BASE" ]; then
+    if [ -n "$EXCLUDE_BASE" ]; then
+        log "Adding base exclude"
         IFS=" " read -r -a exclude <<< "$EXCLUDE_BASE"
         for e in "${exclude[@]}"; do
             cmd+=("--exclude \"$e\" ")
@@ -159,7 +160,7 @@ function get_sync_cmd() {
 
     if [ "$all" = false ]; then
         log "Exclude EXCLUDE_EXTENDED"
-        if [ -v "$EXCLUDE_EXTENDED" ]; then
+        if [ -n "$EXCLUDE_EXTENDED" ]; then
             IFS=" " read -r -a exclude <<< "$EXCLUDE_EXTENDED"
             for e in "${exclude[@]}"; do
                 cmd+=("--exclude \"$e\" ")
@@ -185,7 +186,7 @@ sync_cmd=$(get_sync_cmd)
 if [ "$daemon" = true ]; then
     # TODO: should be update this list inside loop?
     if [ -z "$WATCH" ]; then
-        echo "Cannot start daemon withoug watching files"
+        echo "Cannot start daemon without watching files"
         exit 6
     fi
     log "Watching files: \n$WATCH"
