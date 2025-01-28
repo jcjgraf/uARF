@@ -1,11 +1,39 @@
-/**
- * Automatic IBRS BTI Guest
+/*
+ * Automatic IBRS BTI on Guest
  *
  * That is the impact of Automatic IBRS on BTI considering the guest? Is is still possible?
  *
- * We consider the attack vectors:
- *  - G -> G
+ * As the attack vector we consider all combinations of HU, HS, GS, but as of now, no GU.
  *
+ * We test the mentioned attack vectos, toggle autoIBRS to see its impact. The results of this experiment are summarized in this table:
+ *
+ * ## For Zen4
+ *
+ * ### For jmp:
+ *
+ *          |      HU     |      HS     |      GU     |      GS     |
+ * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
+ * -------- | ----------- | ----------- | ----------- | ----------- |
+ *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       HS | 0.80 ! 0.99 | 0.85 ! 0.05 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
+ *       GS | 0.25 ! 0.25 | 0.04 ! 0.03 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *
+ * autoIBRS has an impact for HU -> HS and HS -> HS. Interesting is that we get a signal for GS -> HU and GS -> HS.
+ *
+ * ### For call:
+ *
+ *          |      HU     |      HS     |      GU     |      GS     |
+ * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
+ * -------- | ----------- | ----------- | ----------- | ----------- |
+ *       HU | 1.00 ! 1.00 | 0.92 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       HS | 0.99 ! 0.99 | 0.98 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
+ *       GS | 0.30 ! 0.35 | 0.30 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *
+ * autoIBRS has an impact for HU -> HS, HS -> HS and GS -> HS. Interesting is the pretty strong signal for GS -> HS w/o autoIBRS. With autoIBRS, in all three cases where it makes a difference, the signal drops to 0.0. This is in contrast to jmp, where it drops to a low number.
+ *
+ * ## For Zen5
  */
 
 #include "uarf/flush_reload.h"
@@ -24,6 +52,16 @@
 #define LOG_TAG LOG_TAG_TEST
 #endif
 
+#define CREATE_TCD(t_mode, s_mode, a_ibrs, main_jita)                   \
+	(struct TestCaseData)                                           \
+	{                                                               \
+		.seed = seed++, .num_cands = 100, .num_rounds = 10,     \
+		.num_train_rounds = 1, .jita_main = &main_jita,         \
+		.jita_gadget = &jita_gadget, .jita_dummy = &jita_dummy, \
+		.match_history = true, .train_mode = t_mode,            \
+		.signal_mode = s_mode, .auto_ibrs = a_ibrs,             \
+	}
+
 psnip_declare(history, psnip_history);
 psnip_declare(src_call_ind, psnip_src_call_ind);
 psnip_declare(src_jmp_ind, psnip_src_jmp_ind);
@@ -31,6 +69,20 @@ psnip_declare(dst_gadget, psnip_dst_gadget);
 psnip_declare(dst_dummy, psnip_dst_dummy);
 
 psnip_declare(exp_guest_bti_jmp, psnip_jmp);
+
+enum mode {
+	HOST_USER,
+	HOST_SUPERVISOR,
+	GUEST_USER,
+	GUEST_SUPERVISOR,
+};
+
+const char *MODE_STR[4] = {
+	"HOST_USER",
+	"HOST_SUPERVISOR",
+	"GUEST_USER",
+	"GUEST_SUPERVISOR",
+};
 
 struct TestCaseData {
 	uint32_t seed;
@@ -41,14 +93,12 @@ struct TestCaseData {
 	jita_ctxt_t *jita_gadget;
 	jita_ctxt_t *jita_dummy;
 	bool match_history;
+	enum mode train_mode;
+	enum mode signal_mode;
+	bool auto_ibrs;
 };
 
 struct GuestData {
-	union {
-		void *code_ptr;
-		uint64_t code_addr;
-		void (*f)(void);
-	};
 	struct SpecData spec_data;
 };
 
@@ -80,14 +130,15 @@ static void run_spec_global(void)
 
 static void guest_main(void)
 {
-	GUEST_PRINTF("Guest started\n");
+	// GUEST_PRINTF("Guest started\n");
 
 	run_spec_global();
 
-	GUEST_PRINTF("Spec done\n");
+	// GUEST_PRINTF("Spec done\n");
 	GUEST_DONE();
 }
 
+// TODO: Move to helper
 void map_mem_to_guest(struct kvm_vm *vm, uint64_t va, uint64_t size)
 {
 	LOG_TRACE("(vm: %p, va: 0x%lx, size: %lu)\n", vm, va, size);
@@ -118,12 +169,14 @@ void map_mem_to_guest(struct kvm_vm *vm, uint64_t va, uint64_t size)
 	memcpy(addr, _ptr(va), size);
 }
 
+// TODO: Move to helper
 void map_stub_to_guest(struct kvm_vm *vm, stub_t *stub)
 {
 	LOG_TRACE("(vm: %p, stub: %p)\n", vm, stub);
 	map_mem_to_guest(vm, stub->base_addr, stub->size);
 }
 
+// TODO: Move to helper
 static void run_vcpu(struct kvm_vcpu *vcpu)
 {
 	LOG_TRACE("(vcpu: %p)\n", vcpu);
@@ -151,10 +204,54 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 	}
 }
 
+static inline void run_spec_host(struct SpecData *sd, struct FrConfig *fr)
+{
+	guestData.spec_data = *sd;
+	run_spec_global();
+}
+
+static void run_spec_guest(struct SpecData *sd, struct FrConfig *fr)
+{
+	struct kvm_vcpu *vcpu;
+	struct kvm_vm *vm;
+
+	uint64_t extra_pages = 10 * (3 + 512);
+
+	guestData.spec_data = *sd;
+
+	// Create VM
+	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
+
+	// Sync globals
+	sync_global_to_guest(vm, guestData);
+	sync_global_to_guest(vm, stub_main);
+	sync_global_to_guest(vm, stub_gadget);
+	sync_global_to_guest(vm, stub_dummy);
+
+	// Map stubs
+	map_stub_to_guest(vm, &stub_main);
+	map_stub_to_guest(vm, &stub_gadget);
+	map_stub_to_guest(vm, &stub_dummy);
+
+	// Map other memory
+	map_mem_to_guest(vm, fr->buf.base_addr, fr->buf_size);
+	map_mem_to_guest(vm, fr->buf2.base_addr, fr->buf_size);
+	map_mem_to_guest(vm, fr->res_addr, fr->res_size);
+
+	// Run VM
+	run_vcpu(vcpu);
+
+	// Trash VM (TODO: recycle VM somehow)
+	kvm_vm_free(vm);
+}
+
 TEST_CASE_ARG(basic, arg)
 {
 	struct TestCaseData *data = (struct TestCaseData *)arg;
 	srand(data->seed);
+
+	LOG_INFO("%s -> %s, autoIBRS %s\n", MODE_STR[data->train_mode],
+		 MODE_STR[data->signal_mode], data->auto_ibrs ? "yes" : "no");
 
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -170,8 +267,11 @@ TEST_CASE_ARG(basic, arg)
 
 	IBPB();
 
-	AUTO_IBRS_ON();
-	// AUTO_IBRS_OFF();
+	if (data->auto_ibrs) {
+		AUTO_IBRS_ON();
+	} else {
+		AUTO_IBRS_OFF();
+	}
 
 	fr_reset(&fr);
 
@@ -196,6 +296,7 @@ TEST_CASE_ARG(basic, arg)
 		struct SpecData signal_data = {
 			.spec_prim_p = stub_main.addr,
 			.spec_dst_p_p = _ul(&stub_dummy.addr),
+			// .spec_dst_p_p = _ul(&stub_gadget.addr),
 			.fr_buf_p = fr.buf.addr,
 			.secret = 1,
 			.hist = h2,
@@ -203,7 +304,92 @@ TEST_CASE_ARG(basic, arg)
 
 		for (size_t r = 0; r < data->num_rounds; r++) {
 			for (size_t t = 0; t < data->num_train_rounds; t++) {
-				guestData.spec_data = train_data;
+				switch (data->train_mode) {
+				case HOST_USER:
+					guestData.spec_data = train_data;
+					run_spec_global();
+					break;
+				case HOST_SUPERVISOR:
+					// Ensure the required data is paged, as when executing in supervisor mode we
+					// cannot handle pagefaults => error
+					*(volatile char *)run_spec;
+					*(volatile char *)train_data.spec_prim_p;
+					**(volatile char **)
+						  train_data.spec_dst_p_p;
+					*(volatile char *)train_data.fr_buf_p;
+					*(volatile char *)
+						 signal_data.spec_prim_p;
+					**(volatile char **)
+						  signal_data.spec_dst_p_p;
+					*(volatile char *)signal_data.fr_buf_p;
+
+					rap_call(run_spec, &train_data);
+					break;
+				case GUEST_USER:
+					LOG_WARNING(
+						"Running in guest user is currently not supported\n");
+					break;
+				case GUEST_SUPERVISOR:
+					guestData.spec_data = train_data;
+
+					// Create VM
+					vm = __vm_create_with_one_vcpu(
+						&vcpu, extra_pages, guest_main);
+
+					// Sync globals
+					sync_global_to_guest(vm, guestData);
+					sync_global_to_guest(vm, stub_main);
+					sync_global_to_guest(vm, stub_gadget);
+					sync_global_to_guest(vm, stub_dummy);
+
+					// Map stubs
+					map_stub_to_guest(vm, &stub_main);
+					map_stub_to_guest(vm, &stub_gadget);
+					map_stub_to_guest(vm, &stub_dummy);
+
+					// Map other memory
+
+					map_mem_to_guest(vm, fr.buf.base_addr,
+							 fr.buf_size);
+					map_mem_to_guest(vm, fr.buf2.base_addr,
+							 fr.buf_size);
+					map_mem_to_guest(vm, fr.res_addr,
+							 fr.res_size);
+
+					run_vcpu(vcpu);
+
+					kvm_vm_free(vm);
+					break;
+				}
+			}
+
+			switch (data->signal_mode) {
+			case HOST_USER:
+				fr_flush(&fr);
+				guestData.spec_data = signal_data;
+				run_spec_global();
+				fr_reload_binned(&fr, r);
+				break;
+			case HOST_SUPERVISOR:
+				// Ensure the required data is paged, as when executing in supervisor mode we
+				// cannot handle pagefaults => error
+				*(volatile char *)run_spec;
+				*(volatile char *)train_data.spec_prim_p;
+				**(volatile char **)train_data.spec_dst_p_p;
+				*(volatile char *)train_data.fr_buf_p;
+				*(volatile char *)signal_data.spec_prim_p;
+				**(volatile char **)signal_data.spec_dst_p_p;
+				*(volatile char *)signal_data.fr_buf_p;
+				fr_flush(&fr);
+				rap_call(run_spec, &signal_data);
+				fr_reload_binned(&fr, r);
+				break;
+			case GUEST_USER:
+				LOG_WARNING(
+					"Running in guest user is currently not supported\n");
+				break;
+			case GUEST_SUPERVISOR:
+				guestData.spec_data = signal_data;
 
 				// Create VM
 				vm = __vm_create_with_one_vcpu(
@@ -227,56 +413,16 @@ TEST_CASE_ARG(basic, arg)
 						 fr.buf_size);
 				map_mem_to_guest(vm, fr.res_addr, fr.res_size);
 
-				// Run VM
-				// run_vcpu(vcpu);
-				run_spec_global();
+				fr.buf.handle_p = addr_gva2hva(vm, fr.buf.addr);
+				fr_flush(&fr);
+				run_vcpu(vcpu);
+				fr_reload_binned(&fr, r);
 
-				// Trash VM (TODO: recycle VM somehow)
 				kvm_vm_free(vm);
+				break;
 			}
-
-			fr_flush(&fr);
-
-			// clflush_spec_dst(&signal_data);
-			// invlpg_spec_dst(&signal_data);
-			// prefetcht0(&train_data);
-			//
-			// // TODO: disable interrupts and preemption
-			guestData.spec_data = signal_data;
-
-			// Create VM
-			vm = __vm_create_with_one_vcpu(&vcpu, extra_pages,
-						       guest_main);
-
-			// Sync globals
-			sync_global_to_guest(vm, guestData);
-			sync_global_to_guest(vm, stub_main);
-			sync_global_to_guest(vm, stub_gadget);
-			sync_global_to_guest(vm, stub_dummy);
-
-			// Map stubs
-			map_stub_to_guest(vm, &stub_main);
-			map_stub_to_guest(vm, &stub_gadget);
-			map_stub_to_guest(vm, &stub_dummy);
-
-			// Map other memory
-			map_mem_to_guest(vm, fr.buf.base_addr, fr.buf_size);
-			map_mem_to_guest(vm, fr.buf2.base_addr, fr.buf_size);
-			map_mem_to_guest(vm, fr.res_addr, fr.res_size);
-
-			// Run VM
-			// run_vcpu(vcpu);
-			run_spec_global();
-
-			// Trash VM (TODO: recycle VM somehow)
-			kvm_vm_free(vm);
-
-			fr_reload_binned(&fr, r);
 		}
 
-		fr_flush(&fr);
-
-		fr_reload(&fr);
 		jita_deallocate(data->jita_main, &stub_main);
 		jita_deallocate(data->jita_gadget, &stub_gadget);
 		jita_deallocate(data->jita_dummy, &stub_dummy);
@@ -289,10 +435,7 @@ TEST_CASE_ARG(basic, arg)
 	TEST_PASS();
 }
 
-static struct TestCaseData data1;
-static struct TestCaseData data2;
-static struct TestCaseData data3;
-static struct TestCaseData data4;
+static struct TestCaseData data[32];
 
 TEST_SUITE()
 {
@@ -322,54 +465,161 @@ TEST_SUITE()
 	jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
 	jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
 
-	    data1 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 10,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_jmp,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .match_history = true,
-    };
+	size_t data_i = 0;
 
-    data2 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_jmp,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .match_history = false,
-    };
+	// for (size_t train_mode = 0; train_mode < 4; train_mode++) {
+	// 	for (size_t signal_mode = 0; signal_mode < 4; signal_mode++) {
+	// 		if (train_mode == GUEST_USER ||
+	// 		    signal_mode == GUEST_USER) {
+	// 			continue;
+	// 		}
+	//
+	// 		data[data_i++] = (struct TestCaseData){
+	// 			.seed = seed++,
+	// 			.num_cands = 100,
+	// 			.num_rounds = 10,
+	// 			.num_train_rounds = 1,
+	// 			.jita_main = &jita_main_jmp,
+	// 			.jita_gadget = &jita_gadget,
+	// 			.jita_dummy = &jita_dummy,
+	// 			.match_history = true,
+	// 			.train_mode = train_mode,
+	// 			.signal_mode = signal_mode,
+	// 			.auto_ibrs = false,
+	// 		};
+	//
+	// 		data[data_i++] = (struct TestCaseData){
+	// 			.seed = seed++,
+	// 			.num_cands = 100,
+	// 			.num_rounds = 10,
+	// 			.num_train_rounds = 1,
+	// 			.jita_main = &jita_main_jmp,
+	// 			.jita_gadget = &jita_gadget,
+	// 			.jita_dummy = &jita_dummy,
+	// 			.match_history = true,
+	// 			.train_mode = train_mode,
+	// 			.signal_mode = signal_mode,
+	// 			.auto_ibrs = true,
+	// 		};
+	// 	}
+	// }
 
-    data3 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_jmp,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .match_history = true,
-    };
+	// data[data_i++] = (struct TestCaseData){
+	// 	.seed = seed++,
+	// 	.num_cands = 50,
+	// 	.num_rounds = 5,
+	// 	.num_train_rounds = 1,
+	// 	.jita_main = &jita_main_jmp,
+	// 	.jita_gadget = &jita_gadget,
+	// 	.jita_dummy = &jita_dummy,
+	// 	.match_history = true,
+	// 	.train_mode = HOST_USER,
+	// 	.signal_mode = HOST_USER,
+	// 	.auto_ibrs = false,
+	// };
 
-    data4 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_jmp,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .match_history = false,
-    };
+	// clang-format off
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	//
+	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
+	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
 
-    RUN_TEST_CASE_ARG(basic, &data1);
-    // RUN_TEST_CASE_ARG(basic, &data2);
-    // RUN_TEST_CASE_ARG(basic, &data3);
-    // RUN_TEST_CASE_ARG(basic, &data4);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_jmp);
+	//
+	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
+	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
+
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	//
+	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_jmp);
+	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
+
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_jmp);
+	//
+	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
+	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
+
+
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_call);
+	//
+	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_call);
+	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_call);
+
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_call);
+	//
+	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_call);
+	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
+
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_call);
+	//
+	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_call);
+	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, true, jita_main_call);
+
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, true, jita_main_call);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_call);
+	//
+	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_call);
+	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_call);
+	//
+	data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
+	data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
+	// clang-format on
+
+	for (size_t i = 0; i < data_i; i++) {
+		RUN_TEST_CASE_ARG(basic, data + i);
+	}
 
 	pi_deinit();
 	rap_deinit();
