@@ -139,6 +139,7 @@ TEST_GEN_PROGS_x86_64 += system_counter_offset_test
 # TEST_GEN_PROGS_x86_64 += hello_world
 
 TEST_GEN_PROGS_x86_64 += x86_64/rev_eng/exa_guest
+TEST_GEN_PROGS_x86_64 += x86_64/rev_eng/exa_guest_flush_reload
 TEST_GEN_PROGS_x86_64 += x86_64/rev_eng/exp_guest_bti
 
 TEST_GEN_FILES += x86_64/rev_eng/exp_guest_bti_asm.o
