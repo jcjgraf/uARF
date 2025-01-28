@@ -45,6 +45,11 @@ struct FrConfig {
             char *p;
             uintptr_t addr;
         };
+        // Address that we use from host when guest interacts with buffer
+        union {
+            char *handle_p;
+            uintptr_t handle_addr;
+        };
     } buf;
     // Second flush and reload buffer
     struct {

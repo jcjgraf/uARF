@@ -9,7 +9,7 @@ void fr_flush(struct FrConfig *conf) {
     LOG_TRACE("(%p)\n", conf);
     mfence();
     for (uint64_t i = 0; i < conf->num_slots; i++) {
-        volatile void *p = conf->buf.p + i * FR_STRIDE;
+        volatile void *p = conf->buf.handle_p + i * FR_STRIDE;
         clflush(p);
     }
     mfence(); // Required to enforce ordering of cl flush with subsequent memory
@@ -43,7 +43,7 @@ void fr_reload_binned(struct FrConfig *conf, size_t iteration) {
 #pragma GCC unroll 1024
     for (uint64_t k = 0; k < conf->num_slots; ++k) {
         size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
-        void *p = conf->buf.p + FR_STRIDE * buf_i;
+        void *p = conf->buf.handle_p + FR_STRIDE * buf_i;
         uint64_t dt = get_access_time(p);
         if (dt < conf->thresh) {
             res_bin_p[buf_i]++;
@@ -54,8 +54,7 @@ void fr_reload_binned(struct FrConfig *conf, size_t iteration) {
 
 // Initialize the flush and reload buffer, its dummy version  and history buffer.
 // Needs to be done from kernel space
-struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins,
-                        size_t *bin_map) {
+struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
     LOG_TRACE("(%u, %u, %p)\n", num_slots, num_bins, bin_map);
 
     // Assert nm_slots is power of two. Fr_reload_range only works for 2^n
@@ -64,7 +63,9 @@ struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins,
     ASSERT(num_bins != 0);
 
     struct FrConfig conf = (struct FrConfig){
-        .buf = {.base_addr = FR_BUF, .addr = FR_BUF + FR_OFFSET},
+        .buf = {.base_addr = FR_BUF,
+                .addr = FR_BUF + FR_OFFSET,
+                .handle_addr = FR_BUF + FR_OFFSET},
         .buf2 = {.base_addr = FR_BUF2, .addr = FR_BUF2 + FR_OFFSET},
         .res_addr = FR_RES,
         .num_slots = num_slots,
