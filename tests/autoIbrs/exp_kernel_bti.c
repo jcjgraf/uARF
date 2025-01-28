@@ -1,7 +1,8 @@
 /**
- * Automatic IBRS BTI
+ * Automatic IBRS BTI on Host
  *
- * That is the impact of Automatic IBRS on BTI? Is is still possible?
+ * That is the impact of Automatic IBRS on BTI? Is is still possible? We only consider
+ * Host user and supervisor in this experiment (no guest).
  *
  * We consider the attack vectors:
  *  - U -> U (basecase)
@@ -9,6 +10,21 @@
  *  - K -> U
  *  - U -> K
  *
+ * We test the mentioned attack vectors, toggle autoIBRS to see its impacts. The results
+ * of this experiment are summarized in this table:
+ *
+ *        | no autoIBRS | autoIBRS |
+ * ------ | ----------- | -------- |
+ * U -> U | 1.0         | 1.0      |
+ * K -> K | 0.85        | 0        |
+ * K -> U | 1.0         | 1.0      |
+ * U -> K | 0.76        | 0        |
+ *
+ * The results are inline with the assumption, that autoIBRS disables the speculative
+ * execution of indirect branch targets.
+ *
+ * Interesting is that K -> U interference works, even with autoIBRS. This implies that it
+ * really only disables the execution, but still updates the state.
  */
 
 #include "flush_reload.h"
@@ -41,11 +57,15 @@ struct TestCaseData {
     jita_ctxt_t *jita_dummy;
     bool train_in_kernel;
     bool signal_in_kernel;
+    bool auto_ibrs;
 };
 
 TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
+
+    LOG_INFO("%s -> %s, autoIBRS %s\n", data->train_in_kernel ? "HS" : "HU",
+             data->signal_in_kernel ? "HS" : "HU", data->auto_ibrs ? "yes" : "no");
 
     // struct FrConfig fr = fr_init(8, 6, (size_t[]){0, 1, 2, 3, 5, 10});
     struct FrConfig fr = fr_init(8, 1, NULL);
@@ -61,8 +81,12 @@ TEST_CASE_ARG(basic, arg) {
 
     IBPB();
 
-    AUTO_IBRS_ON();
-    // AUTO_IBRS_OFF();
+    if (data->auto_ibrs) {
+        AUTO_IBRS_ON();
+    }
+    else {
+        AUTO_IBRS_OFF();
+    }
 
     fr_reset(&fr);
 
@@ -131,14 +155,7 @@ TEST_CASE_ARG(basic, arg) {
     TEST_PASS();
 }
 
-static struct TestCaseData data1;
-static struct TestCaseData data2;
-static struct TestCaseData data3;
-static struct TestCaseData data4;
-static struct TestCaseData data5;
-static struct TestCaseData data6;
-static struct TestCaseData data7;
-static struct TestCaseData data8;
+static struct TestCaseData data[10];
 
 TEST_SUITE() {
     uint32_t seed = get_seed();
@@ -166,7 +183,9 @@ TEST_SUITE() {
     jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
     jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
 
-    data1 = (struct TestCaseData){
+    size_t data_i = 0;
+
+    data[data_i++] = (struct TestCaseData){
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -176,9 +195,23 @@ TEST_SUITE() {
         .jita_dummy = &jita_dummy,
         .train_in_kernel = false,
         .signal_in_kernel = false,
+        .auto_ibrs = false,
     };
 
-    data2 = (struct TestCaseData){
+    data[data_i++] = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .train_in_kernel = false,
+        .signal_in_kernel = false,
+        .auto_ibrs = false,
+    };
+
+    data[data_i++] = (struct TestCaseData){
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -188,9 +221,23 @@ TEST_SUITE() {
         .jita_dummy = &jita_dummy,
         .train_in_kernel = true,
         .signal_in_kernel = false,
+        .auto_ibrs = false,
     };
 
-    data3 = (struct TestCaseData){
+    data[data_i++] = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .train_in_kernel = true,
+        .signal_in_kernel = false,
+        .auto_ibrs = true,
+    };
+
+    data[data_i++] = (struct TestCaseData){
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -200,9 +247,23 @@ TEST_SUITE() {
         .jita_dummy = &jita_dummy,
         .train_in_kernel = false,
         .signal_in_kernel = true,
+        .auto_ibrs = false,
     };
 
-    data4 = (struct TestCaseData){
+    data[data_i++] = (struct TestCaseData){
+        .seed = seed++,
+        .num_cands = 100,
+        .num_rounds = 10,
+        .num_train_rounds = 1,
+        .jita_main = &jita_main_jmp,
+        .jita_gadget = &jita_gadget,
+        .jita_dummy = &jita_dummy,
+        .train_in_kernel = false,
+        .signal_in_kernel = true,
+        .auto_ibrs = true,
+    };
+
+    data[data_i++] = (struct TestCaseData){
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -212,64 +273,25 @@ TEST_SUITE() {
         .jita_dummy = &jita_dummy,
         .train_in_kernel = true,
         .signal_in_kernel = true,
+        .auto_ibrs = false,
     };
 
-    data5 = (struct TestCaseData){
+    data[data_i++] = (struct TestCaseData){
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
         .num_train_rounds = 1,
-        .jita_main = &jita_main_call,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .train_in_kernel = false,
-        .signal_in_kernel = false,
-    };
-
-    data6 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_call,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .train_in_kernel = true,
-        .signal_in_kernel = false,
-    };
-
-    data7 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_call,
-        .jita_gadget = &jita_gadget,
-        .jita_dummy = &jita_dummy,
-        .train_in_kernel = false,
-        .signal_in_kernel = true,
-    };
-
-    data8 = (struct TestCaseData){
-        .seed = seed++,
-        .num_cands = 100,
-        .num_rounds = 10,
-        .num_train_rounds = 1,
-        .jita_main = &jita_main_call,
+        .jita_main = &jita_main_jmp,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
         .train_in_kernel = true,
         .signal_in_kernel = true,
+        .auto_ibrs = true,
     };
 
-    RUN_TEST_CASE_ARG(basic, &data1, "UU, jmp");
-    RUN_TEST_CASE_ARG(basic, &data2, "KU, jmp");
-    RUN_TEST_CASE_ARG(basic, &data3, "UK, jmp");
-    RUN_TEST_CASE_ARG(basic, &data4, "KK, jmp");
-    RUN_TEST_CASE_ARG(basic, &data5, "UU, call");
-    RUN_TEST_CASE_ARG(basic, &data6, "KU, call");
-    RUN_TEST_CASE_ARG(basic, &data7, "UK, call");
-    RUN_TEST_CASE_ARG(basic, &data8, "KK, call");
+    for (size_t i = 0; i < data_i; i++) {
+        RUN_TEST_CASE_ARG(basic, data + i);
+    }
 
     pi_deinit();
     rap_deinit();
