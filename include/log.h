@@ -42,6 +42,7 @@ typedef enum {
     LOG_TAG_PSNIP = BIT(4),
     LOG_TAG_STUB = BIT(5),
     LOG_TAG_FR = BIT(6),
+    LOG_TAG_PFC = BIT(7),
     LOG_TAG_ALL = ULONG_MAX,
 } log_tag_t;
 

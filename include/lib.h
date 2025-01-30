@@ -115,6 +115,12 @@ static inline unsigned int get_cpl(void) {
     return cs & 0x03;
 }
 
+static inline uint64_t rdpmc(uint32_t index) {
+    uint32_t lo, hi;
+    asm volatile("rdpmc" : "=a"(lo), "=d"(hi) : "c"(index));
+    return ((uint64_t) hi << 32) | lo;
+}
+
 #define ASSERT(cond)                                                                     \
     do {                                                                                 \
         if (!(cond)) {                                                                   \
