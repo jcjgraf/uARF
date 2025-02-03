@@ -2,6 +2,7 @@
  * Play with performance counters and show how we can interact with them.
  */
 
+#include "lib.h"
 #include "pfc.h"
 #include "pfc_amd.h"
 #include "test.h"
@@ -49,8 +50,42 @@ TEST_CASE(rdpmc) {
     TEST_PASS();
 }
 
+TEST_CASE(pm) {
+    struct pm measure;
+
+    // pm_init(&measure, AMD_EX_RET_INSTR);
+    pm_init(&measure, AMD_EX_RET_BRN_IND_MISP);
+
+    mfence();
+    lfence();
+    pm_start(&measure);
+    pm_stop(&measure);
+
+    printf("%lu\n", pm_get(&measure));
+
+    pm_reset(&measure);
+    mfence();
+    lfence();
+    pm_start(&measure);
+    pm_stop(&measure);
+
+    printf("%lu\n", pm_get(&measure));
+
+    pm_deinit(&measure);
+
+    TEST_PASS();
+}
+
+TEST_CASE(pmg) {
+    struct pmg pmg;
+
+    TEST_PASS();
+}
+
 TEST_SUITE() {
     RUN_TEST_CASE(read);
     RUN_TEST_CASE(rdpmc);
+    RUN_TEST_CASE(pm);
+    RUN_TEST_CASE(pmg);
     return 0;
 }

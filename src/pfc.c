@@ -40,6 +40,11 @@ int pfc_init(struct pfc *pfc) {
         LOG_WARNING("rdpmc is not available!\n");
     }
 
+    // TODO: why have to subtract 1?
+    pfc->index = pfc->page->index - 1;
+    pfc->offset = pfc->page->offset;
+    pfc->mask = (1ul << pfc->page->pmc_width) - 1;
+
     return 0;
 }
 
@@ -54,19 +59,7 @@ void pfc_deinit(struct pfc *pfc) {
 uint64_t pfc_read(struct pfc *pfc) {
     LOG_TRACE("(%p)\n", pfc);
     // TODO: Do I need locks?
-
-    // TODO: why subtract one?
-    uint64_t pmc = rdpmc(pfc->page->index - 1);
+    uint64_t pmc = rdpmc(pfc->index);
     LOG_DEBUG("raw PFC value: %lu\n", pmc);
-
-    pmc += pfc->page->offset;
-
-    uint64_t mask = (1ul << pfc->page->pmc_width) - 1;
-    pmc &= mask;
-
-    // Sign-extend
-    // pmc <<= 64 - pfc->page->pmc_width;
-    // pmc >>= 64 - pfc->page->pmc_width;
-
-    return pmc;
+    return pm_transform_raw(pfc, pmc);
 }
