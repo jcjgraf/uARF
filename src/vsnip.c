@@ -5,15 +5,15 @@
 
 #include <string.h>
 
-int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_adr_ptr, uint64_t rem_size) {
-    LOG_TRACE("(%p, %p, %lu)\n", snip, base_adr_ptr, rem_size);
+int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_addr_ptr, uint64_t rem_size) {
+    LOG_TRACE("(%p, %p, %lu)\n", snip, base_addr_ptr, rem_size);
 
     ASSERT(snip);
-    ASSERT(base_adr_ptr);
+    ASSERT(base_addr_ptr);
     ASSERT(snip->alignment > 0);
 
-    uint64_t aligned_addr = ALIGN_UP(*base_adr_ptr, snip->alignment);
-    uint64_t num_bytes = aligned_addr - *base_adr_ptr;
+    uint64_t aligned_addr = ALIGN_UP(*base_addr_ptr, snip->alignment);
+    uint64_t num_bytes = aligned_addr - *base_addr_ptr;
 
     // Check if enough space left
     if (num_bytes > rem_size) {
@@ -21,14 +21,14 @@ int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_adr_ptr, uint64_t rem_
         return -ENOSPC;
     }
 
-    memset(_ptr(*base_adr_ptr), NOP_BYTE, num_bytes);
+    memset(_ptr(*base_addr_ptr), NOP_BYTE, num_bytes);
 
-    LOG_DEBUG("Padded stub from 0x%lx to 0x%lx\n", *base_adr_ptr,
-              *base_adr_ptr + num_bytes);
+    LOG_DEBUG("Padded stub from 0x%lx to 0x%lx\n", *base_addr_ptr,
+              *base_addr_ptr + num_bytes);
 
-    *base_adr_ptr += num_bytes;
+    *base_addr_ptr += num_bytes;
 
-    ASSERT(*base_adr_ptr == ALIGN_UP(*base_adr_ptr, snip->alignment));
+    ASSERT(*base_addr_ptr == ALIGN_UP(*base_addr_ptr, snip->alignment));
 
     return ESUCCESS;
 }

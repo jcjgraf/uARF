@@ -3,9 +3,9 @@
  */
 
 #pragma once
-#include <stdint.h>
 #include "log.h"
 #include "stub.h"
+#include <stdint.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -60,7 +60,7 @@ typedef struct {
 } vsnip_fill_t;
 
 /**
- * Represents a virtual snipper
+ * Represents a virtual snippet
  */
 typedef struct {
     enum vsnip_t {
@@ -84,17 +84,17 @@ typedef struct {
 /**
  * Allocation function for vsnip_align_t
  *
- * Insert as many nops to `*base_adr_ptr` to make the updated `*base_adr_ptr` aligned
+ * Insert as many nops to `*base_addr_ptr` to make the updated `*base_addr_ptr` aligned
  * to the requirement of the vsnip_align_t.
  *
  * @param snip pointer to vsnip to allocate
- * @param base_adr_ptr to address where to allocate to. Gets updated to new base
+ * @param base_addr_ptr to address where to allocate to. Gets updated to new base
  * address
- * @param rem_size number of bytes that are mapped starting at `*base_adr_ptr`
+ * @param rem_size number of bytes that are mapped starting at `*base_addr_ptr`
  *
  * @returns -ENOSPC if `rem_size` is too small to allocate nsnip, else ESUCCESS
  */
-int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_adr_ptr, uint64_t rem_size);
+int vsnip_align_alloc(vsnip_align_t *snip, uint64_t *base_addr_ptr, uint64_t rem_size);
 
 /**
  * Allocation function for vsnip_assert_align_t
@@ -116,9 +116,9 @@ void vsnip_dump_stub_alloc(vsnip_dump_stub_t *snip, stub_t *stub);
  * Allocation function for vsnip_jump_near_abs_t
  *
  * @param snip pointer to vsnip to allocate
- * @param base_adr_ptr to address where to allocate to. Gets updated to new base
+ * @param base_addr_ptr to address where to allocate to. Gets updated to new base
  * address
- * @param rem_size number of bytes that are mapped starting at `*base_adr_ptr`
+ * @param rem_size number of bytes that are mapped starting at `*base_addr_ptr`
  *
  * @returns -ENOSPC if `rem_size` is too small to allocate nsnip, else ESUCCESS
  */
@@ -129,9 +129,9 @@ int vsnip_jmp_near_abs_alloc(vsnip_jmp_near_abs_t *snip, uint64_t *base_addr_ptr
  * Allocation function for vsnip_jump_near_rel_t
  *
  * @param snip pointer to vsnip to allocate
- * @param base_adr_ptr to address where to allocate to. Gets updated to new base
+ * @param base_addr_ptr to address where to allocate to. Gets updated to new base
  * address
- * @param rem_size number of bytes that are mapped starting at `*base_adr_ptr`
+ * @param rem_size number of bytes that are mapped starting at `*base_addr_ptr`
  *
  * @returns -ENOSPC if `rem_size` is too small to allocate nsnip, else ESUCCESS
  */
@@ -142,9 +142,9 @@ int vsnip_jmp_near_rel_alloc(vsnip_jmp_near_rel_t *snip, uint64_t *base_addr_ptr
  * Allocation function for vsnip_fill_t
  *
  * @param snip pointer to vsnip to allocate
- * @param base_adr_ptr to address where to allocate to. Gets updated to new base
+ * @param base_addr_ptr to address where to allocate to. Gets updated to new base
  * address
- * @param rem_size number of bytes that are mapped starting at `*base_adr_ptr`
+ * @param rem_size number of bytes that are mapped starting at `*base_addr_ptr`
  *
  * @returns -ENOSPC if `rem_size` is too small to allocate nsnip, else ESUCCESS
  */
