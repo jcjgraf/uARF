@@ -15,9 +15,9 @@
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
  *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
- *       HS | 0.80 ! 0.99 | 0.85 ! 0.05 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       HS | 1.00 ! 1.00 | 1.00 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
  *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
- *       GS | 0.25 ! 0.25 | 0.04 ! 0.03 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       GS | 0.30 ! 0.30 | 0.25 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
  *
  * autoIBRS has an impact for HU -> HS and HS -> HS. Interesting is that we get a signal for GS -> HU and GS -> HS.
  *
@@ -34,6 +34,28 @@
  * autoIBRS has an impact for HU -> HS, HS -> HS and GS -> HS. Interesting is the pretty strong signal for GS -> HS w/o autoIBRS. With autoIBRS, in all three cases where it makes a difference, the signal drops to 0.0. This is in contrast to jmp, where it drops to a low number.
  *
  * ## For Zen5
+ *
+ * ### For jmp:
+ *
+ *          |      HU     |      HS     |      GU     |      GS     |
+ * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
+ * -------- | ----------- | ----------- | ----------- | ----------- |
+ *       HU |             |             | XXXX ! XXXX |             |
+ *       HS |             |             | XXXX ! XXXX |             |
+ *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
+ *       GS |             |             | XXXX ! XXXX |             |
+ *
+ * autoIBRS has an impact for HU -> HS and HS -> HS. Interesting is that we get a signal for GS -> HU and GS -> HS.
+ *
+ * ### For call:
+ *
+ *          |      HU     |      HS     |      GU     |      GS     |
+ * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
+ * -------- | ----------- | ----------- | ----------- | ----------- |
+ *       HU |             |             | XXXX ! XXXX |             |
+ *       HS |             |             | XXXX ! XXXX |             |
+ *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
+ *       GS |             |             | XXXX ! XXXX |             |
  */
 
 #include "uarf/flush_reload.h"
@@ -44,6 +66,8 @@
 #include "uarf/log.h"
 #include "uarf/spec_lib.h"
 #include "uarf/test.h"
+#include "uarf/pfc.h"
+#include "uarf/pfc_amd.h"
 
 #include <ucall_common.h>
 
@@ -55,7 +79,7 @@
 #define CREATE_TCD(t_mode, s_mode, a_ibrs, main_jita)                   \
 	(struct TestCaseData)                                           \
 	{                                                               \
-		.seed = seed++, .num_cands = 100, .num_rounds = 10,     \
+		.seed = seed++, .num_cands = 100, .num_rounds = 10,       \
 		.num_train_rounds = 1, .jita_main = &main_jita,         \
 		.jita_gadget = &jita_gadget, .jita_dummy = &jita_dummy, \
 		.match_history = true, .train_mode = t_mode,            \
@@ -67,6 +91,8 @@ psnip_declare(src_call_ind, psnip_src_call_ind);
 psnip_declare(src_jmp_ind, psnip_src_jmp_ind);
 psnip_declare(dst_gadget, psnip_dst_gadget);
 psnip_declare(dst_dummy, psnip_dst_dummy);
+
+psnip_declare(rdpmc, psnip_rdpmc);
 
 psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
@@ -258,8 +284,11 @@ TEST_CASE_ARG(basic, arg)
 
 	uint64_t extra_pages = 10 * (3 + 512);
 
-	// struct FrConfig fr = fr_init(8, 6, (size_t[]){0, 1, 2, 3, 5, 10});
-	struct FrConfig fr = fr_init(8, 1, NULL);
+	struct FrConfig fr = fr_init(8, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
+	// struct FrConfig fr = fr_init(8, 1, NULL);
+
+	struct pm pm;
+	pm_init(&pm, AMD_EX_RET_BRN_IND_MISP);
 
 	stub_main = stub_init();
 	stub_gadget = stub_init();
@@ -291,6 +320,7 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf2.addr,
 			.secret = 0,
 			.hist = h1,
+			.memory = { 0, 0, 0, pm.pfc.index, 0, 0},
 		};
 
 		struct SpecData signal_data = {
@@ -300,6 +330,7 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf.addr,
 			.secret = 1,
 			.hist = h2,
+			.memory = { 0, 0, 0, pm.pfc.index, 0, 0},
 		};
 
 		for (size_t r = 0; r < data->num_rounds; r++) {
@@ -367,7 +398,21 @@ TEST_CASE_ARG(basic, arg)
 			case HOST_USER:
 				fr_flush(&fr);
 				guestData.spec_data = signal_data;
+
+				uint64_t start;
+
+				// pm_start(&pm);
 				run_spec_global();
+
+				signal_data = *(volatile struct SpecData *)&(guestData.spec_data);
+
+				start = (signal_data.memory[4] << 32) |
+						 signal_data.memory[5];
+				
+				start = pm_transform_raw(&pm.pfc, start);
+				pm.tmp = start;
+				pm_stop(&pm);
+
 				fr_reload_binned(&fr, r);
 				break;
 			case HOST_SUPERVISOR:
@@ -432,6 +477,9 @@ TEST_CASE_ARG(basic, arg)
 
 	fr_deinit(&fr);
 
+	printf("pm:    %lu\n", pm_get(&pm));
+	pm_deinit(&pm);
+
 	TEST_PASS();
 }
 
@@ -456,6 +504,8 @@ TEST_SUITE()
 	jita_push_psnip(&jita_main_call, &psnip_history);
 	jita_push_psnip(&jita_main_call, &psnip_history);
 	jita_push_psnip(&jita_main_call, &psnip_history);
+
+	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
 
 	jita_clone(&jita_main_call, &jita_main_jmp);
 
@@ -568,8 +618,8 @@ TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
 
 
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_call);
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_call);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
 	//
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_call);
@@ -613,8 +663,8 @@ TEST_SUITE()
 	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_call);
 	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_call);
 	//
-	data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
-	data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
 	// clang-format on
 
 	for (size_t i = 0; i < data_i; i++) {

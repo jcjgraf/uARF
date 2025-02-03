@@ -432,3 +432,23 @@ SNIP_START history
     .skip 0x8, 0x90
     1:
 SNIP_END history
+
+SNIP_START rdpmc
+    // Backup RSI and RSI <- RCX
+    movq %rsi,  DATA__memory0(%rcx)
+    movq %rcx, %rsi
+    // Backup RDX and RAX
+    movq %rdx,  DATA__memory1(%rsi)
+    movq %rax,  DATA__memory2(%rsi)
+    // Load index and run RDPMC
+    movq  DATA__memory3(%rsi), %rcx
+    rdpmc
+    // Store obtained values
+    movq %rdx,  DATA__memory4(%rsi)
+    movq %rax,  DATA__memory5(%rsi)
+    // Reset registers
+    movq  DATA__memory1(%rsi), %rdx
+    movq  DATA__memory2(%rsi), %rax
+    movq %rsi, %rcx
+    movq  DATA__memory0(%rcx), %rsi
+SNIP_END rdpmc

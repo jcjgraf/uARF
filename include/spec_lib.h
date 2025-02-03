@@ -6,7 +6,13 @@
 #define DATA__spec_dst_p_p 8
 #define DATA__fr_buf_p     16
 #define DATA__secret       24
-#define DATA__hist         32
+#define DATA__memory0      32
+#define DATA__memory1      40
+#define DATA__memory2      48
+#define DATA__memory3      56
+#define DATA__memory4      64
+#define DATA__memory5      72
+#define DATA__hist         80
 #define DATA__hist_size    8
 // #define DATA__hist_num   200
 
@@ -27,7 +33,8 @@ struct SpecData {
     uint64_t spec_dst_p_p; // 8
     uint64_t fr_buf_p;     // 16
     uint64_t secret;       // 24
-    struct history hist;   // 32 onwards
+    uint64_t memory[6];    // 32
+    struct history hist;   // 80 onwards
 } __aligned(8) __packed;
 
 // Get an randomly initialized history
