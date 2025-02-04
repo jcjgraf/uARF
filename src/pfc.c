@@ -61,5 +61,5 @@ uint64_t pfc_read(struct pfc *pfc) {
     // TODO: Do I need locks?
     uint64_t pmc = rdpmc(pfc->index);
     LOG_DEBUG("raw PFC value: %lu\n", pmc);
-    return pm_transform_raw(pfc, pmc);
+    return pm_transform_raw2(pfc, pmc);
 }

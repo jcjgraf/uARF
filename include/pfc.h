@@ -131,10 +131,10 @@ static __always_inline void pm_reset(struct pm *pm) {
 }
 
 /*
- * Convert the value returned by `rdpmc` to the actual counter value.
+ * Convert the combined raw value returned by `rdpmc` to the actual counter value.
  */
-static __always_inline uint64_t pm_transform_raw(struct pfc *pfc, uint64_t raw) {
-    LOG_TRACE("(%lu)\n", raw);
+static __always_inline uint64_t pm_transform_raw2(struct pfc *pfc, uint64_t raw) {
+    LOG_TRACE("(%p, %lu)\n", pfc, raw);
 
     // Sign-extend
     // TODO: required?
@@ -144,4 +144,14 @@ static __always_inline uint64_t pm_transform_raw(struct pfc *pfc, uint64_t raw) 
     raw += pfc->offset;
     raw &= pfc->mask;
     return raw;
+}
+
+/*
+ * Convert the separate values returned by `rdpmc` to the actual counter value.
+ */
+static __always_inline uint64_t pm_transform_raw1(struct pfc *pfc, uint32_t lo,
+                                                  uint32_t hi) {
+    LOG_TRACE("(%p, %u, %u)\n", pfc, lo, hi);
+
+    return pm_transform_raw2(pfc, ((uint64_t) hi << 32) | lo);
 }

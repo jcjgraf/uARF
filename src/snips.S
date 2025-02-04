@@ -32,6 +32,17 @@ SNIP_START src_call_ind
     int3
 SNIP_END src_call_ind
 
+SNIP_START src_call_ind_no_ret
+    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+    movq $0, %rdx                                       // SIZE: 7
+    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    clflush (%r8)                                       // SIZE: 4
+    mfence // Keep here for now. Creates a new BB       // SIZE: 3
+    lfence                                              // SIZE: 3
+    call *(%r8)                                         // SIZE: 3
+SNIP_END src_call_ind_no_ret
+
 /*
  * Victim branch source using an indirect jmp
  * Regs:
@@ -51,6 +62,19 @@ SNIP_START src_jmp_ind
     jmp *(%r8) // Calls return                          // SIZE: 3
     int3
 SNIP_END src_jmp_ind
+
+SNIP_START src_jmp_ind_no_ret
+    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+    lea 25(%rip), %rdx                      // SIZE: 7 Address of end of block (=> return address)
+    pushq %rdx                              // SIZE: 1
+    movq $0, %rdx                                       // SIZE: 7
+    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    clflush (%r8)                                       // SIZE: 4
+    mfence // Keep here for now. Creates a new BB       // SIZE: 3
+    lfence                                              // SIZE: 3
+    jmp *(%r8) // Calls return                          // SIZE: 3
+SNIP_END src_jmp_ind_no_ret
 
 /*
  * Gadget Code, leaking the secret when executed speculatively
@@ -441,14 +465,34 @@ SNIP_START rdpmc
     movq %rdx,  DATA__memory1(%rsi)
     movq %rax,  DATA__memory2(%rsi)
     // Load index and run RDPMC
-    movq  DATA__memory3(%rsi), %rcx
+    movq  DATA__pfc_index(%rsi), %rcx
     rdpmc
     // Store obtained values
-    movq %rdx,  DATA__memory4(%rsi)
-    movq %rax,  DATA__memory5(%rsi)
+    movq %rdx,  DATA__pfc_start_hi(%rsi)
+    movq %rax,  DATA__pfc_start_lo(%rsi)
     // Reset registers
     movq  DATA__memory1(%rsi), %rdx
     movq  DATA__memory2(%rsi), %rax
     movq %rsi, %rcx
     movq  DATA__memory0(%rcx), %rsi
-SNIP_END rdpmc
+SNIP_END rdpmc_start
+
+SNIP_START rdpmc_end
+    // Backup RSI and RSI <- RCX
+    movq %rsi,  DATA__memory0(%rcx)
+    movq %rcx, %rsi
+    // Backup RDX and RAX
+    movq %rdx,  DATA__memory1(%rsi)
+    movq %rax,  DATA__memory2(%rsi)
+    // Load index and run RDPMC
+    movq  DATA__pfc_index(%rsi), %rcx
+    rdpmc
+    // Store obtained values
+    movq %rdx,  DATA__pfc_end_hi(%rsi)
+    movq %rax,  DATA__pfc_end_lo(%rsi)
+    // Reset registers
+    movq  DATA__memory1(%rsi), %rdx
+    movq  DATA__memory2(%rsi), %rax
+    movq %rsi, %rcx
+    movq  DATA__memory0(%rcx), %rsi
+SNIP_END rdpmc_end

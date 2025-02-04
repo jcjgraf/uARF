@@ -40,7 +40,7 @@
  *          |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
- *       HU |             |             | XXXX ! XXXX |             |
+ *       HU | 1.00 ! 1.00 |             | XXXX ! XXXX |             |
  *       HS |             |             | XXXX ! XXXX |             |
  *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
  *       GS |             |             | XXXX ! XXXX |             |
@@ -79,7 +79,7 @@
 #define CREATE_TCD(t_mode, s_mode, a_ibrs, main_jita)                   \
 	(struct TestCaseData)                                           \
 	{                                                               \
-		.seed = seed++, .num_cands = 100, .num_rounds = 10,       \
+		.seed = seed++, .num_cands = 100, .num_rounds = 10,     \
 		.num_train_rounds = 1, .jita_main = &main_jita,         \
 		.jita_gadget = &jita_gadget, .jita_dummy = &jita_dummy, \
 		.match_history = true, .train_mode = t_mode,            \
@@ -87,14 +87,17 @@
 	}
 
 psnip_declare(history, psnip_history);
-psnip_declare(src_call_ind, psnip_src_call_ind);
-psnip_declare(src_jmp_ind, psnip_src_jmp_ind);
+psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
+psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
 psnip_declare(dst_gadget, psnip_dst_gadget);
 psnip_declare(dst_dummy, psnip_dst_dummy);
 
-psnip_declare(rdpmc, psnip_rdpmc);
+psnip_declare(rdpmc_start, psnip_rdpmc_start);
+psnip_declare(rdpmc_end, psnip_rdpmc_end);
 
 psnip_declare(exp_guest_bti_jmp, psnip_jmp);
+
+psnip_declare_define(psnip_ret, "ret\n\t");
 
 enum mode {
 	HOST_USER,
@@ -129,7 +132,7 @@ struct GuestData {
 };
 
 // Out globals that we also need in our guest
-struct GuestData guestData;
+struct GuestData guest_data;
 
 stub_t stub_main;
 stub_t stub_gadget;
@@ -137,7 +140,7 @@ stub_t stub_dummy;
 
 static void run_spec_global(void)
 {
-	struct SpecData *data = &guestData.spec_data;
+	struct SpecData *data = &guest_data.spec_data;
 
 	// Ensure we have access to the required data
 	// It easier to debug if we fail here that later
@@ -232,7 +235,7 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 
 static inline void run_spec_host(struct SpecData *sd, struct FrConfig *fr)
 {
-	guestData.spec_data = *sd;
+	guest_data.spec_data = *sd;
 	run_spec_global();
 }
 
@@ -243,13 +246,13 @@ static void run_spec_guest(struct SpecData *sd, struct FrConfig *fr)
 
 	uint64_t extra_pages = 10 * (3 + 512);
 
-	guestData.spec_data = *sd;
+	guest_data.spec_data = *sd;
 
 	// Create VM
 	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
 
 	// Sync globals
-	sync_global_to_guest(vm, guestData);
+	sync_global_to_guest(vm, guest_data);
 	sync_global_to_guest(vm, stub_main);
 	sync_global_to_guest(vm, stub_gadget);
 	sync_global_to_guest(vm, stub_dummy);
@@ -320,7 +323,12 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf2.addr,
 			.secret = 0,
 			.hist = h1,
-			.memory = { 0, 0, 0, pm.pfc.index, 0, 0},
+			.pfc_index = pm.pfc.index,
+			.pfc_start_hi = 0,
+			.pfc_start_lo = 0,
+			.pfc_end_hi = 0,
+			.pfc_end_lo = 0,
+			.memory = { 0 },
 		};
 
 		struct SpecData signal_data = {
@@ -330,14 +338,19 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf.addr,
 			.secret = 1,
 			.hist = h2,
-			.memory = { 0, 0, 0, pm.pfc.index, 0, 0},
+			.pfc_index = pm.pfc.index,
+			.pfc_start_hi = 0,
+			.pfc_start_lo = 0,
+			.pfc_end_hi = 0,
+			.pfc_end_lo = 0,
+			.memory = { 0 },
 		};
 
 		for (size_t r = 0; r < data->num_rounds; r++) {
 			for (size_t t = 0; t < data->num_train_rounds; t++) {
 				switch (data->train_mode) {
 				case HOST_USER:
-					guestData.spec_data = train_data;
+					guest_data.spec_data = train_data;
 					run_spec_global();
 					break;
 				case HOST_SUPERVISOR:
@@ -361,14 +374,14 @@ TEST_CASE_ARG(basic, arg)
 						"Running in guest user is currently not supported\n");
 					break;
 				case GUEST_SUPERVISOR:
-					guestData.spec_data = train_data;
+					guest_data.spec_data = train_data;
 
 					// Create VM
 					vm = __vm_create_with_one_vcpu(
 						&vcpu, extra_pages, guest_main);
 
 					// Sync globals
-					sync_global_to_guest(vm, guestData);
+					sync_global_to_guest(vm, guest_data);
 					sync_global_to_guest(vm, stub_main);
 					sync_global_to_guest(vm, stub_gadget);
 					sync_global_to_guest(vm, stub_dummy);
@@ -397,21 +410,24 @@ TEST_CASE_ARG(basic, arg)
 			switch (data->signal_mode) {
 			case HOST_USER:
 				fr_flush(&fr);
-				guestData.spec_data = signal_data;
+				guest_data.spec_data = signal_data;
 
-				uint64_t start;
-
-				// pm_start(&pm);
 				run_spec_global();
 
-				signal_data = *(volatile struct SpecData *)&(guestData.spec_data);
+				({
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_start_lo,
+						guest_data.spec_data
+							.pfc_start_hi);
 
-				start = (signal_data.memory[4] << 32) |
-						 signal_data.memory[5];
-				
-				start = pm_transform_raw(&pm.pfc, start);
-				pm.tmp = start;
-				pm_stop(&pm);
+					uint64_t end = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_end_lo,
+						guest_data.spec_data.pfc_end_hi);
+
+					pm.count += end - start;
+				});
 
 				fr_reload_binned(&fr, r);
 				break;
@@ -427,6 +443,20 @@ TEST_CASE_ARG(basic, arg)
 				*(volatile char *)signal_data.fr_buf_p;
 				fr_flush(&fr);
 				rap_call(run_spec, &signal_data);
+				({
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_start_lo,
+						guest_data.spec_data
+							.pfc_start_hi);
+
+					uint64_t end = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_end_lo,
+						guest_data.spec_data.pfc_end_hi);
+
+					pm.count += end - start;
+				});
 				fr_reload_binned(&fr, r);
 				break;
 			case GUEST_USER:
@@ -434,14 +464,14 @@ TEST_CASE_ARG(basic, arg)
 					"Running in guest user is currently not supported\n");
 				break;
 			case GUEST_SUPERVISOR:
-				guestData.spec_data = signal_data;
+				guest_data.spec_data = signal_data;
 
 				// Create VM
 				vm = __vm_create_with_one_vcpu(
 					&vcpu, extra_pages, guest_main);
 
 				// Sync globals
-				sync_global_to_guest(vm, guestData);
+				sync_global_to_guest(vm, guest_data);
 				sync_global_to_guest(vm, stub_main);
 				sync_global_to_guest(vm, stub_gadget);
 				sync_global_to_guest(vm, stub_dummy);
@@ -461,6 +491,24 @@ TEST_CASE_ARG(basic, arg)
 				fr.buf.handle_p = addr_gva2hva(vm, fr.buf.addr);
 				fr_flush(&fr);
 				run_vcpu(vcpu);
+
+				sync_global_from_guest(vm, guest_data);
+
+				({
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_start_lo,
+						guest_data.spec_data
+							.pfc_start_hi);
+
+					uint64_t end = pm_transform_raw1(
+						&pm.pfc,
+						guest_data.spec_data.pfc_end_lo,
+						guest_data.spec_data.pfc_end_hi);
+
+					pm.count += end - start;
+				});
+
 				fr_reload_binned(&fr, r);
 
 				kvm_vm_free(vm);
@@ -505,12 +553,18 @@ TEST_SUITE()
 	jita_push_psnip(&jita_main_call, &psnip_history);
 	jita_push_psnip(&jita_main_call, &psnip_history);
 
-	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
+	jita_push_psnip(&jita_main_call, &psnip_rdpmc_start);
 
 	jita_clone(&jita_main_call, &jita_main_jmp);
 
 	jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
 	jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+
+	jita_push_psnip(&jita_main_call, &psnip_rdpmc_end);
+	jita_push_psnip(&jita_main_jmp, &psnip_rdpmc_end);
+
+	jita_push_psnip(&jita_main_call, &psnip_ret);
+	jita_push_psnip(&jita_main_jmp, &psnip_ret);
 
 	jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
 	jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
@@ -572,8 +626,8 @@ TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
 	//
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
 	//
 	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
 	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
@@ -618,8 +672,8 @@ TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
 
 
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_call);
 	//
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_call);
