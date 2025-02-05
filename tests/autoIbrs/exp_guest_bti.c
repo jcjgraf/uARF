@@ -92,8 +92,9 @@ psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
 psnip_declare(dst_gadget, psnip_dst_gadget);
 psnip_declare(dst_dummy, psnip_dst_dummy);
 
-psnip_declare(rdpmc_start, psnip_rdpmc_start);
-psnip_declare(rdpmc_end, psnip_rdpmc_end);
+psnip_declare(rdpmc, psnip_rdpmc);
+// psnip_declare(rdpmc_start, psnip_rdpmc_start);
+// psnip_declare(rdpmc_end, psnip_rdpmc_end);
 
 psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
@@ -323,12 +324,9 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf2.addr,
 			.secret = 0,
 			.hist = h1,
-			.pfc_index = pm.pfc.index,
-			.pfc_start_hi = 0,
-			.pfc_start_lo = 0,
-			.pfc_end_hi = 0,
-			.pfc_end_lo = 0,
-			.memory = { 0 },
+			.ustack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
+			.istack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
+			.ostack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
 		};
 
 		struct SpecData signal_data = {
@@ -338,16 +336,20 @@ TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf.addr,
 			.secret = 1,
 			.hist = h2,
-			.pfc_index = pm.pfc.index,
-			.pfc_start_hi = 0,
-			.pfc_start_lo = 0,
-			.pfc_end_hi = 0,
-			.pfc_end_lo = 0,
-			.memory = { 0 },
+			.ustack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
+			.istack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
+			.ostack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
 		};
 
 		for (size_t r = 0; r < data->num_rounds; r++) {
 			for (size_t t = 0; t < data->num_train_rounds; t++) {
+				// Prepare stacks
+				cstack_reset(&train_data.ustack);
+				cstack_reset(&train_data.istack);
+				cstack_reset(&train_data.ostack);
+				cstack_push(&train_data.istack, pm.pfc.index);
+				cstack_push(&train_data.istack, pm.pfc.index);
+
 				switch (data->train_mode) {
 				case HOST_USER:
 					guest_data.spec_data = train_data;
@@ -407,24 +409,42 @@ TEST_CASE_ARG(basic, arg)
 				}
 			}
 
+			// Prepare stacks
+			cstack_reset(&signal_data.ustack);
+			cstack_reset(&signal_data.istack);
+			cstack_reset(&signal_data.ostack);
+			cstack_push(&signal_data.istack, pm.pfc.index);
+			cstack_push(&signal_data.istack, pm.pfc.index);
+
 			switch (data->signal_mode) {
 			case HOST_USER:
 				fr_flush(&fr);
 				guest_data.spec_data = signal_data;
-
 				run_spec_global();
 
+				signal_data = guest_data.spec_data;
+
 				({
-					uint64_t start = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_start_lo,
-						guest_data.spec_data
-							.pfc_start_hi);
+					uint64_t end_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t end_hi =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_hi =
+						cstack_pop(&signal_data.ostack);
 
 					uint64_t end = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_end_lo,
-						guest_data.spec_data.pfc_end_hi);
+						&pm.pfc, end_lo, end_hi);
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc, start_lo, start_hi);
+
+					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
+					//        start, start_lo, start_hi);
+					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
+					//        end, end_lo, end_hi);
+					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
+					//        start, end, end - start);
 
 					pm.count += end - start;
 				});
@@ -443,20 +463,32 @@ TEST_CASE_ARG(basic, arg)
 				*(volatile char *)signal_data.fr_buf_p;
 				fr_flush(&fr);
 				rap_call(run_spec, &signal_data);
+
 				({
-					uint64_t start = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_start_lo,
-						guest_data.spec_data
-							.pfc_start_hi);
+					uint64_t end_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t end_hi =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_hi =
+						cstack_pop(&signal_data.ostack);
 
 					uint64_t end = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_end_lo,
-						guest_data.spec_data.pfc_end_hi);
+						&pm.pfc, end_lo, end_hi);
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc, start_lo, start_hi);
+
+					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
+					//        start, start_lo, start_hi);
+					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
+					//        end, end_lo, end_hi);
+					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
+					//        start, end, end - start);
 
 					pm.count += end - start;
 				});
+
 				fr_reload_binned(&fr, r);
 				break;
 			case GUEST_USER:
@@ -495,16 +527,26 @@ TEST_CASE_ARG(basic, arg)
 				sync_global_from_guest(vm, guest_data);
 
 				({
-					uint64_t start = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_start_lo,
-						guest_data.spec_data
-							.pfc_start_hi);
+					uint64_t end_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t end_hi =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_lo =
+						cstack_pop(&signal_data.ostack);
+					uint64_t start_hi =
+						cstack_pop(&signal_data.ostack);
 
 					uint64_t end = pm_transform_raw1(
-						&pm.pfc,
-						guest_data.spec_data.pfc_end_lo,
-						guest_data.spec_data.pfc_end_hi);
+						&pm.pfc, end_lo, end_hi);
+					uint64_t start = pm_transform_raw1(
+						&pm.pfc, start_lo, start_hi);
+
+					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
+					//        start, start_lo, start_hi);
+					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
+					//        end, end_lo, end_hi);
+					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
+					//        start, end, end - start);
 
 					pm.count += end - start;
 				});
@@ -553,15 +595,15 @@ TEST_SUITE()
 	jita_push_psnip(&jita_main_call, &psnip_history);
 	jita_push_psnip(&jita_main_call, &psnip_history);
 
-	jita_push_psnip(&jita_main_call, &psnip_rdpmc_start);
+	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
 
 	jita_clone(&jita_main_call, &jita_main_jmp);
 
 	jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
 	jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
 
-	jita_push_psnip(&jita_main_call, &psnip_rdpmc_end);
-	jita_push_psnip(&jita_main_jmp, &psnip_rdpmc_end);
+	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
+	jita_push_psnip(&jita_main_jmp, &psnip_rdpmc);
 
 	jita_push_psnip(&jita_main_call, &psnip_ret);
 	jita_push_psnip(&jita_main_jmp, &psnip_ret);
@@ -623,11 +665,11 @@ TEST_SUITE()
 	// };
 
 	// clang-format off
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
 	//
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
 	//
 	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
 	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);

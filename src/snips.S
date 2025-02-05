@@ -457,42 +457,101 @@ SNIP_START history
     1:
 SNIP_END history
 
-SNIP_START rdpmc
-    // Backup RSI and RSI <- RCX
-    movq %rsi,  DATA__memory0(%rcx)
-    movq %rcx, %rsi
-    // Backup RDX and RAX
-    movq %rdx,  DATA__memory1(%rsi)
-    movq %rax,  DATA__memory2(%rsi)
-    // Load index and run RDPMC
-    movq  DATA__pfc_index(%rsi), %rcx
-    rdpmc
-    // Store obtained values
-    movq %rdx,  DATA__pfc_start_hi(%rsi)
-    movq %rax,  DATA__pfc_start_lo(%rsi)
-    // Reset registers
-    movq  DATA__memory1(%rsi), %rdx
-    movq  DATA__memory2(%rsi), %rax
-    movq %rsi, %rcx
-    movq  DATA__memory0(%rcx), %rsi
-SNIP_END rdpmc_start
+/*
+ * Get the index into a custom stack from the data memory.
+ *
+ * Backup `index_reg` to `scratch_offset` and load `index_offset` into `index_reg`
+ */
+.macro CSTACK_LOAD_INDEX data_base_reg, index_offset, scratch_offset, index_reg
+    movq \index_reg, \scratch_offset(\data_base_reg)
+    movq \index_offset(\data_base_reg), \index_reg
+.endm
 
-SNIP_START rdpmc_end
-    // Backup RSI and RSI <- RCX
-    movq %rsi,  DATA__memory0(%rcx)
+/*
+ * Store the index into a custom stack into the data memory.
+ *
+ * Store `index_reg` in `index_offset` and load `scratch_offset` into `index_reg`
+ */
+.macro CSTACK_STORE_INDEX data_base_reg, index_offset, scratch_offset, index_reg
+    movq \index_reg, \index_offset(\data_base_reg)
+    movq \scratch_offset(\data_base_reg), \index_reg
+.endm
+
+/*
+ * Push `value` (reg or immediate) to a custom stack.
+ */
+.macro CSTACK_PUSH data_base_reg, stack_offset, index_offset, scratch_offset, index_reg, value
+    CSTACK_LOAD_INDEX \data_base_reg, \index_offset, \scratch_offset, \index_reg
+    movq \value, \stack_offset(\data_base_reg, \index_reg, 8)
+    inc \index_reg
+    CSTACK_STORE_INDEX \data_base_reg, \index_offset, \scratch_offset, \index_reg
+.endm
+
+/*
+ * Pop a value from a custom stack into `reg`
+ */
+.macro CSTACK_POP data_base_reg, stack_offset, index_offset, scratch_offset, index_reg, reg
+    CSTACK_LOAD_INDEX \data_base_reg, \index_offset, \scratch_offset, \index_reg
+    dec \index_reg
+    movq \stack_offset(\data_base_reg, \index_reg, 8), \reg
+    CSTACK_STORE_INDEX \data_base_reg, \index_offset, \scratch_offset, \index_reg
+.endm
+
+// User Stack Macros
+.macro USTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_PUSH \data_base_reg, USTACK_STACK_OFFSET, USTACK_INDEX_OFFSET, USTACK_SCRATCH_OFFSET, \index_reg, \value
+.endm
+
+.macro USTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_POP \data_base_reg, USTACK_STACK_OFFSET, USTACK_INDEX_OFFSET, USTACK_SCRATCH_OFFSET, \index_reg, \reg
+.endm
+
+// Input Stack Macros
+.macro ISTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_PUSH \data_base_reg, ISTACK_STACK_OFFSET, ISTACK_INDEX_OFFSET, ISTACK_SCRATCH_OFFSET, \index_reg, \value
+.endm
+
+.macro ISTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_POP \data_base_reg, ISTACK_STACK_OFFSET, ISTACK_INDEX_OFFSET, ISTACK_SCRATCH_OFFSET, \index_reg, \reg
+.endm
+
+// Output Stack Macros
+.macro OSTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_PUSH \data_base_reg, OSTACK_STACK_OFFSET, OSTACK_INDEX_OFFSET, OSTACK_SCRATCH_OFFSET, \index_reg, \value
+.endm
+
+.macro OSTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
+    CSTACK_POP \data_base_reg, OSTACK_STACK_OFFSET, OSTACK_INDEX_OFFSET, OSTACK_SCRATCH_OFFSET, \index_reg, \reg
+.endm
+
+SNIP_START rdpmc
+    // Switch data base pointer to rsi as we need rcx
+    USTACK_PUSH %rsi
     movq %rcx, %rsi
-    // Backup RDX and RAX
-    movq %rdx,  DATA__memory1(%rsi)
-    movq %rax,  DATA__memory2(%rsi)
-    // Load index and run RDPMC
-    movq  DATA__pfc_index(%rsi), %rcx
+
+    // Backup registers
+    USTACK_PUSH %rdx, %rsi
+    USTACK_PUSH %rax, %rsi
+
+    // Get value from input
+    ISTACK_POP %rcx, %rsi
+
+    // Zero upper portion as we push 64 for simplicity
+    xor %rdx, %rdx
+    xor %rax, %rax
+
+    // Read performance counter
     rdpmc
-    // Store obtained values
-    movq %rdx,  DATA__pfc_end_hi(%rsi)
-    movq %rax,  DATA__pfc_end_lo(%rsi)
-    // Reset registers
-    movq  DATA__memory1(%rsi), %rdx
-    movq  DATA__memory2(%rsi), %rax
+
+    // Store value to output
+    OSTACK_PUSH %rdx, %rsi
+    OSTACK_PUSH %rax, %rsi
+
+    // Restore registers
+    USTACK_POP %rax, %rsi
+    USTACK_POP %rdx, %rsi
+
+    // Restore data base pointer from rsi to rcx
     movq %rsi, %rcx
-    movq  DATA__memory0(%rcx), %rsi
-SNIP_END rdpmc_end
+    USTACK_POP %rsi
+SNIP_END rdpmc
