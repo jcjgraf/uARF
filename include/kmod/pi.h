@@ -5,19 +5,21 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#define IOCTL_RDMSR     _IOWR('m', 1, struct req_msr)
-#define IOCTL_WRMSR     _IOWR('m', 2, struct req_msr)
-#define IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
-#define IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
-#define IOCTL_CPUID     _IOWR('m', 5, struct req_cpuid)
+#define UARF_IOCTL_RDMSR     _IOWR('m', 1, UarfPiReqMsr)
+#define UARF_IOCTL_WRMSR     _IOWR('m', 2, UarfPiReqMsr)
+#define UARF_IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
+#define UARF_IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
+#define UARF_IOCTL_CPUID     _IOWR('m', 5, UarfPiReqCpuid)
 
 // For rdmsr/rwmsr
-struct req_msr {
+typedef struct UarfPiReqMsr UarfPiReqMsr;
+struct UarfPiReqMsr {
     uint32_t msr;
     uint64_t value;
 };
 
-struct req_cpuid {
+typedef struct UarfPiReqCpuid UarfPiReqCpuid;
+struct UarfPiReqCpuid {
     uint32_t eax; // Leaf
     uint32_t ebx;
     uint32_t ecx; // Sub-leaf
@@ -26,21 +28,21 @@ struct req_cpuid {
 
 static int fd_pi;
 
-static inline void pi_init(void) {
+static __always_inline void uarf_pi_init(void) {
     fd_pi = open("/dev/pi", O_RDONLY, 0777);
     if (fd_pi == -1) {
         printf("uarf_pi module missing");
     }
 }
 
-static inline int pi_deinit(void) {
+static __always_inline int uarf_pi_deinit(void) {
     return close(fd_pi);
 }
 
-static inline uint64_t pi_rdmsr(uint32_t msr) {
-    struct req_msr req = {.msr = msr};
+static __always_inline uint64_t uarf_pi_rdmsr(uint32_t msr) {
+    UarfPiReqMsr req = {.msr = msr};
 
-    if (ioctl(fd_pi, IOCTL_RDMSR, &req) < 0) {
+    if (ioctl(fd_pi, UARF_IOCTL_RDMSR, &req) < 0) {
         perror("Failed to read MSR\n");
         return -1;
     }
@@ -48,33 +50,33 @@ static inline uint64_t pi_rdmsr(uint32_t msr) {
     return req.value;
 }
 
-static inline void pi_wrmsr(uint32_t msr, uint64_t value) {
-    struct req_msr req = {.msr = msr, .value = value};
+static __always_inline void uarf_pi_wrmsr(uint32_t msr, uint64_t value) {
+    UarfPiReqMsr req = {.msr = msr, .value = value};
 
-    if (ioctl(fd_pi, IOCTL_WRMSR, &req) < 0) {
+    if (ioctl(fd_pi, UARF_IOCTL_WRMSR, &req) < 0) {
         perror("Failed to write MSR\n");
     }
 }
 
-static inline void pi_invlpg(uint64_t addr) {
+static __always_inline void uarf_pi_invlpg(uint64_t addr) {
     uint64_t a = addr;
-    if (ioctl(fd_pi, IOCTL_INVLPG, &a) < 0) {
+    if (ioctl(fd_pi, UARF_IOCTL_INVLPG, &a) < 0) {
         perror("Failed to invalidate TLB for addr\n");
     }
 }
 
-static inline void pi_flush_tlb(void) {
-    if (ioctl(fd_pi, IOCTL_FLUSH_TLB, NULL) < 0) {
+static __always_inline void uarf_pi_flush_tlb(void) {
+    if (ioctl(fd_pi, UARF_IOCTL_FLUSH_TLB, NULL) < 0) {
         perror("Failed to flush TLB\n");
     }
 }
 
-static inline void pi_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
-                            uint32_t *edx) {
+static __always_inline void uarf_pi_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
+                                          uint32_t *ecx, uint32_t *edx) {
 
-    struct req_cpuid req = {.eax = leaf, .ebx = 0, .ecx = 0, .edx = 0};
+    UarfPiReqCpuid req = {.eax = leaf, .ebx = 0, .ecx = 0, .edx = 0};
 
-    if (ioctl(fd_pi, IOCTL_CPUID, &req) < 0) {
+    if (ioctl(fd_pi, UARF_IOCTL_CPUID, &req) < 0) {
         perror("Failed to CPUID\n");
     }
 

@@ -7,15 +7,15 @@
 #include "pfc_amd.h"
 #include "test.h"
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_TEST
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_TEST
 #endif
 
-TEST_CASE(read) {
-    struct pfc pfc = {.config = AMD_EX_RET_INSTR};
+UARF_TEST_CASE(read) {
+    UarfPfc pfc = {.config = UARF_AMD_EX_RET_INSTR};
 
-    pfc_init(&pfc);
+    uarf_pfc_init(&pfc);
 
     uint64_t start;
     read(pfc.fd, &start, 8);
@@ -29,63 +29,67 @@ TEST_CASE(read) {
     read(pfc.fd, &end, 8);
 
     printf("%lu\n", end - start);
-    TEST_PASS();
+
+    uarf_pfc_deinit(&pfc);
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(rdpmc) {
-    struct pfc pfc = {.config = AMD_EX_RET_INSTR};
+UARF_TEST_CASE(rdpmc) {
+    UarfPfc pfc = {.config = UARF_AMD_EX_RET_INSTR};
 
-    pfc_init(&pfc);
+    uarf_pfc_init(&pfc);
 
-    uint64_t start = pfc_read(&pfc);
+    uint64_t start = uarf_pfc_read(&pfc);
     ({
         volatile uint64_t a = 5;
         for (size_t i = 0; i < 10; i++) {
             a *= 3;
         }
     });
-    uint64_t end = pfc_read(&pfc);
+    uint64_t end = uarf_pfc_read(&pfc);
 
     printf("%lu\n", end - start);
-    TEST_PASS();
+
+    uarf_pfc_deinit(&pfc);
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(pm) {
-    struct pm measure;
+UARF_TEST_CASE(pm) {
+    UarfPm measure;
 
     // pm_init(&measure, AMD_EX_RET_INSTR);
-    pm_init(&measure, AMD_EX_RET_BRN_IND_MISP);
+    uarf_pm_init(&measure, UARF_AMD_EX_RET_BRN_IND_MISP);
 
-    mfence();
-    lfence();
-    pm_start(&measure);
-    pm_stop(&measure);
+    uarf_mfence();
+    uarf_lfence();
+    uarf_pm_start(&measure);
+    uarf_pm_stop(&measure);
 
-    printf("%lu\n", pm_get(&measure));
+    printf("%lu\n", uarf_pm_get(&measure));
 
-    pm_reset(&measure);
-    mfence();
-    lfence();
-    pm_start(&measure);
-    pm_stop(&measure);
+    uarf_pm_reset(&measure);
+    uarf_mfence();
+    uarf_lfence();
+    uarf_pm_start(&measure);
+    uarf_pm_stop(&measure);
 
-    printf("%lu\n", pm_get(&measure));
+    printf("%lu\n", uarf_pm_get(&measure));
 
-    pm_deinit(&measure);
+    uarf_pm_deinit(&measure);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(pmg) {
-    struct pmg pmg;
+UARF_TEST_CASE(pmg) {
+    UarfPmg pmg;
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_SUITE() {
-    RUN_TEST_CASE(read);
-    RUN_TEST_CASE(rdpmc);
-    RUN_TEST_CASE(pm);
-    RUN_TEST_CASE(pmg);
+UARF_TEST_SUITE() {
+    UARF_TEST_RUN_CASE(read);
+    UARF_TEST_RUN_CASE(rdpmc);
+    UARF_TEST_RUN_CASE(pm);
+    UARF_TEST_RUN_CASE(pmg);
     return 0;
 }

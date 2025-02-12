@@ -11,39 +11,40 @@
 #include "compiler.h"
 #include <stdint.h>
 
-#define psnip_start(name) CAT(name, __snip_start)
-#define psnip_end(name)   CAT(name, __snip_end)
+#define uarf_psnip_start(name) CAT(name, __snip_start)
+#define uarf_psnip_end(name)   CAT(name, __snip_end)
 
-#define psnip_declare(snip_name, local_name)                                             \
-    extern char __text psnip_start(snip_name)[];                                         \
-    extern char __text psnip_end(snip_name)[];                                           \
-    psnip_t __data local_name = {                                                        \
-        .ptr = psnip_start(snip_name),                                                   \
-        .end_ptr = psnip_end(snip_name),                                                 \
+#define uarf_psnip_declare(snip_name, local_name)                                        \
+    extern char __text uarf_psnip_start(snip_name)[];                                    \
+    extern char __text uarf_psnip_end(snip_name)[];                                      \
+    UarfPsnip __data local_name = {                                                      \
+        .ptr = uarf_psnip_start(snip_name),                                              \
+        .end_ptr = uarf_psnip_end(snip_name),                                            \
     }
 
 // clang-format off
-#define psnip_declare_define(name, str)                                                  \
-    extern char __text psnip_start(name)[];                                              \
-    extern char __text psnip_end(name)[];                                                \
+#define uarf_psnip_declare_define(name, str)                                                  \
+    extern char __text uarf_psnip_start(name)[];                                              \
+    extern char __text uarf_psnip_end(name)[];                                                \
     asm(".pushsection .text\n\t"                                                         \
     ".align 0x1000\n\t"                                                                  \
-    STR(psnip_start(name)) ":\n\t"                                                       \
+    STR(uarf_psnip_start(name)) ":\n\t"                                                       \
     str                                                                                  \
-    STR(psnip_end(name)) ":\n\t"                                                         \
+    STR(uarf_psnip_end(name)) ":\n\t"                                                         \
     "nop\n\t"                                                                            \
     ".popsection\n\t"                                                                    \
     );                                                                                   \
-    psnip_t __data name = {                                                              \
-        .ptr = psnip_start(name),                                                        \
-        .end_ptr = psnip_end(name),                                                      \
+    UarfPsnip __data name = {                                                              \
+        .ptr = uarf_psnip_start(name),                                                        \
+        .end_ptr = uarf_psnip_end(name),                                                      \
     }
 // clang-format on
 
 /**
  * Holds pointers to start and end of a snippet
  */
-typedef struct {
+typedef struct UarfPsnip UarfPsnip;
+struct UarfPsnip {
     union {
         char *ptr;
         uint64_t addr;
@@ -53,12 +54,12 @@ typedef struct {
         char *end_ptr;
         uint64_t end_addr;
     };
-} psnip_t;
+};
 
 /**
  * Get the size of a snippet
  */
-static inline uint64_t psnip_size(psnip_t *snip) {
+static inline uint64_t uarf_psnip_size(UarfPsnip *snip) {
     return snip->end_addr - snip->addr;
 }
 
@@ -66,12 +67,12 @@ static inline uint64_t psnip_size(psnip_t *snip) {
 #include "asm-macros.h"
 
 /* clang-format off */
-.macro SNIP_START name
+.macro UARF_SNIP_START name
     SECTION(.text, "", PAGE_SIZE)
     GLOBAL(\name\()__snip_start)
 .endm
 
-.macro SNIP_END name
+.macro UARF_SNIP_END name
     .type \name\()__snip_start, STT_FUNC
     SIZE(\name\()__snip_start)
     GLOBAL(\name\()__snip_end)

@@ -1,16 +1,16 @@
 #include "spec_lib.h"
 #include <stdlib.h>
 
-struct history get_randomized_history(void) {
-    return (struct history){
+UarfHistory uarf_get_randomized_history(void) {
+    return (UarfHistory) {
         .hist[0] = random(),
         .hist[1] = random(),
     };
 }
 
 // Do not inline, such that we ensure it is "paged"
-void run_spec(void *arg) {
-    struct SpecData *data = (struct SpecData *) arg;
+void uarf_run_spec(void *arg) {
+    UarfSpecData *data = (UarfSpecData *) arg;
 
     asm volatile("lea return_here%=, %%rax\n\t"
                  "pushq %%rax\n\t"

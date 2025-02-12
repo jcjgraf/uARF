@@ -9,7 +9,8 @@
 /**
  * Executable code, starting at addr
  */
-typedef struct stub {
+typedef struct UarfStub UarfStub;
+struct UarfStub {
     // Start of allocated memory, aligned to the (initial) size of the allocated memory
     // region
     union {
@@ -31,34 +32,33 @@ typedef struct stub {
         char *end_ptr;
         uint64_t end_addr;
     };
-
-} stub_t;
+};
 
 /**
  * Get an initialized stub_t.
  *
  * Only required in local function, as globals are initialized to zero.
  */
-static __always_inline stub_t stub_init(void) {
-    return (stub_t){.size = 0};
+static __always_inline UarfStub uarf_stub_init(void) {
+    return (UarfStub) {.size = 0};
 }
 
 /**
  * Add `size` bytes of code at addr `start` to `stub`.
  */
-void stub_add(stub_t *stub, uint64_t start, uint64_t size);
+void uarf_stub_add(UarfStub *stub, uint64_t start, uint64_t size);
 
 /**
  * Map more memory at contiguous addresses for the stub
  */
-void stub_extend(stub_t *stub);
+void uarf_stub_extend(UarfStub *stub);
 
 /**
  * Frees all memory used by the stub
  */
-void stub_free(stub_t *stub);
+void uarf_stub_free(UarfStub *stub);
 
 /**
  * Number of bytes that are free.
  */
-uint64_t stub_size_free(stub_t *stub);
+uint64_t uarf_stub_size_free(UarfStub *stub);

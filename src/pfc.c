@@ -9,8 +9,8 @@
 /*
  * Initialize a PFC
  */
-int pfc_init(struct pfc *pfc) {
-    LOG_TRACE("(%p)\n", pfc);
+int uarf_pfc_init(UarfPfc *pfc) {
+    UARF_LOG_TRACE("(%p)\n", pfc);
     struct perf_event_attr pe;
     memset(&pe, 0, sizeof(pe));
     pe.type = PERF_TYPE_RAW;
@@ -29,15 +29,15 @@ int pfc_init(struct pfc *pfc) {
     // pe.exclude_guest = 1;
     pe.exclude_callchain_kernel = 1;
 
-    pfc->fd = perf_event_open(&pe, 0, -1, -1, 0);
+    pfc->fd = uarf_perf_event_open(&pe, 0, -1, -1, 0);
     if (pfc->fd == -1) {
-        LOG_ERROR("Error opening PFC %llx\nDo you run as root?\n", pe.config);
+        UARF_LOG_ERROR("Error opening PFC %llx\nDo you run as root?\n", pe.config);
         exit(1);
     }
 
     pfc->page = mmap(NULL, 0x1000, PROT_READ, MAP_SHARED, pfc->fd, 0);
     if (!pfc->page->cap_user_rdpmc) {
-        LOG_WARNING("rdpmc is not available!\n");
+        UARF_LOG_WARNING("rdpmc is not available!\n");
     }
 
     // TODO: why have to subtract 1?
@@ -48,18 +48,18 @@ int pfc_init(struct pfc *pfc) {
     return 0;
 }
 
-void pfc_deinit(struct pfc *pfc) {
-    LOG_TRACE("(%p)\n", pfc);
+void uarf_pfc_deinit(UarfPfc *pfc) {
+    UARF_LOG_TRACE("(%p)\n", pfc);
     munmap(pfc->page, 0x1000);
     close(pfc->fd);
     pfc->page = 0;
     pfc->fd = 0;
 }
 
-uint64_t pfc_read(struct pfc *pfc) {
-    LOG_TRACE("(%p)\n", pfc);
+uint64_t uarf_pfc_read(UarfPfc *pfc) {
+    UARF_LOG_TRACE("(%p)\n", pfc);
     // TODO: Do I need locks?
-    uint64_t pmc = rdpmc(pfc->index);
-    LOG_DEBUG("raw PFC value: %lu\n", pmc);
-    return pm_transform_raw2(pfc, pmc);
+    uint64_t pmc = uarf_rdpmc(pfc->index);
+    UARF_LOG_DEBUG("raw PFC value: %lu\n", pmc);
+    return uarf_pm_transform_raw2(pfc, pmc);
 }

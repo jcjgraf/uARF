@@ -16,25 +16,6 @@
  */
 
 #include "processor.h"
-#include "uarf/jita.h"
-#include "uarf/kmod/pi.h"
-#include "uarf/kmod/rap.h"
-
-// Crazy import hack to prevent name collisions :D
-#define cpuid lib_cpuid
-#define rdmsr lib_rdmsr
-#define wrmsr lib_wrmsr
-#define rdtsc lib_rdtsc
-#define rdtscp lib_rdtscp
-#include "uarf/lib.h"
-#include "uarf/guest.h"
-#undef cpuid
-#undef rdmsr
-#undef wrmsr
-#undef rdtsc
-#undef rdtscp
-
-#include "uarf/psnip.h"
 
 #include <err.h>
 #include <syscall.h>
@@ -44,13 +25,19 @@
 #include <ucall_common.h>
 #include <kvm_util_base.h>
 
-#include "processor.h"
+#include "uarf/guest.h"
+#include "uarf/jita.h"
+#include "uarf/kmod/pi.h"
+#include "uarf/kmod/rap.h"
+#include "uarf/lib.h"
+#include "uarf/psnip.h"
+#include "uarf/test.h"
 
 #define NUM_ADDITINAL_PAGES 1
 
-psnip_declare_define(test_dst, "lfence\n"
-			       "ret\n"
-			       "int3\n");
+uarf_psnip_declare_define(test_dst, "lfence\n"
+				    "ret\n"
+				    "int3\n");
 
 typedef struct registers {
 	union {
@@ -69,30 +56,31 @@ void do_call(registers_t *r)
 
 static void guest_main(void)
 {
-	init_syscall(syscall_handler_return, __KERNEL_CS, __USER_CS_STAR);
+	uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS,
+			  __USER_CS_STAR);
 
 	GUEST_PRINTF("Hello from Guest Supervisor!\n");
-	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
 	do_call(&registers);
 
-	supervisor2user();
+	uarf_supervisor2user();
 	GUEST_PRINTF("Dropped privileges to user\n");
-	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
 	do_call(&registers);
 
-	user2supervisor();
+	uarf_user2supervisor();
 	GUEST_PRINTF("Escalated privileges to supervisor\n");
-	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
 	do_call(&registers);
 
-	supervisor2user();
+	uarf_supervisor2user();
 	GUEST_PRINTF("Dropped privileges to user\n");
-	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
 	do_call(&registers);
 
-	user2supervisor();
+	uarf_user2supervisor();
 	GUEST_PRINTF("Escalated privileges to supervisor\n");
-	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
 	do_call(&registers);
 
 	GUEST_PRINTF("Exiting VM\n");
@@ -144,7 +132,7 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 	}
 }
 
-void copy_to_guest(struct kvm_vm *vm, stub_t *stub)
+void copy_to_guest(struct kvm_vm *vm, UarfStub *stub)
 {
 	static u64 next_slot = NR_MEM_REGIONS;
 	static u64 used_pages = 0;
@@ -182,11 +170,11 @@ int test(void)
 	// vm_install_exception_handler(vm, <NR>, <HANDLER>); // Register handler if required
 
 	// allocate some code
-	jita_ctxt_t jita = jita_init();
-	jita_push_psnip(&jita, &test_dst);
-	stub_t stub = stub_init();
-	u64 train_dst_addr = rand47();
-	jita_allocate(&jita, &stub, train_dst_addr);
+	UarfJitaCtxt jita = uarf_jita_init();
+	uarf_jita_push_psnip(&jita, &test_dst);
+	UarfStub stub = uarf_stub_init();
+	u64 train_dst_addr = uarf_rand47();
+	uarf_jita_allocate(&jita, &stub, train_dst_addr);
 
 	// also map the code into the VM
 	copy_to_guest(vm, &stub);
@@ -199,34 +187,37 @@ int test(void)
 	// Host user
 	printf("run in host user\n");
 	do_call(&registers);
-	rup_call(registers.code_ptr, NULL);
+	uarf_rup_call(registers.code_ptr, NULL);
 
 	// Host kernel
 	printf("run in host kernel\n");
-	rap_call(registers.code_ptr, NULL);
+	uarf_rap_call(registers.code_ptr, NULL);
 
 	// Guest supervisor
 	printf("run in guest supervisor and user\n");
 	run_vcpu(vcpu);
 
 	// cleanup
-	jita_deallocate(&jita, &stub);
+	uarf_jita_deallocate(&jita, &stub);
 	kvm_vm_free(vm);
 
 	return 0;
 }
 
-int main(void)
+UARF_TEST_SUITE()
 {
+	uint32_t seed = uarf_get_seed();
+	UARF_LOG_INFO("Using seed: %u\n", seed);
+
 	srandom(getpid());
 
-	rap_init();
-	pi_init();
+	uarf_rap_init();
+	uarf_pi_init();
 
 	test();
 
-	rap_deinit();
-	pi_init();
+	uarf_rap_deinit();
+	uarf_pi_init();
 
 	printf("done\n");
 }

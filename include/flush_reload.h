@@ -2,6 +2,8 @@
  * Flush+Reload tools.
  */
 
+#pragma once
+
 // L3 miss
 #define FR_THRESH 150
 
@@ -26,13 +28,14 @@
 #include "log.h"
 #include <string.h>
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_FR
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_FR
 #endif
 
 #define FR_CONFIG_BIN_MAPPING_SIZE 10
-struct FrConfig {
+typedef struct UarfFrConfig UarfFrConfig;
+struct UarfFrConfig {
     // First flush and reload buffer
     struct {
         // Page Aligned address
@@ -85,22 +88,22 @@ struct FrConfig {
     size_t res_size;
 };
 
-static __always_inline void fr_reset(struct FrConfig *conf) {
-    LOG_TRACE("(%p)\n", conf);
+static __always_inline void uarf_fr_reset(UarfFrConfig *conf) {
+    UARF_LOG_TRACE("(%p)\n", conf);
     memset(conf->res_p, 0, conf->num_slots * conf->num_bins * sizeof(uint32_t));
 }
 
-void fr_flush(struct FrConfig *conf);
-void fr_reload_binned(struct FrConfig *conf, size_t iteration);
+void uarf_fr_flush(UarfFrConfig *conf);
+void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration);
 
-struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map);
+UarfFrConfig uarf_fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map);
 
-void fr_deinit(struct FrConfig *conf);
-void fr_print(struct FrConfig *conf);
+void uarf_fr_deinit(UarfFrConfig *conf);
+void uarf_fr_print(UarfFrConfig *conf);
 
-static __always_inline void fr_reload(struct FrConfig *conf) {
-    LOG_TRACE("(%p)\n", conf);
-    fr_reload_binned(conf, 0);
+static __always_inline void uarf_fr_reload(UarfFrConfig *conf) {
+    UARF_LOG_TRACE("(%p)\n", conf);
+    uarf_fr_reload_binned(conf, 0);
 }
 
 #endif /* __ASSEMBLY__ */

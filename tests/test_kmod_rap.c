@@ -14,13 +14,13 @@ static void basic_run(void *data) {
     asm volatile("nop\n\t");
 }
 
-TEST_CASE(basic) {
-    rap_init();
+UARF_TEST_CASE(basic) {
+    uarf_rap_init();
 
-    rap_call(basic_run, NULL);
+    uarf_rap_call(basic_run, NULL);
 
-    rap_deinit();
-    TEST_PASS();
+    uarf_rap_deinit();
+    UARF_TEST_PASS();
 }
 
 static void argument_run(void *data) {
@@ -28,22 +28,22 @@ static void argument_run(void *data) {
     *a = 7;
 }
 
-TEST_CASE(argument) {
-    rap_init();
+UARF_TEST_CASE(argument) {
+    uarf_rap_init();
 
     uint64_t a = 5;
 
-    rap_call(argument_run, &a);
+    uarf_rap_call(argument_run, &a);
 
-    TEST_ASSERT(a == 7);
+    UARF_TEST_ASSERT(a == 7);
 
-    rap_deinit();
-    TEST_PASS();
+    uarf_rap_deinit();
+    UARF_TEST_PASS();
 }
 
-TEST_SUITE() {
-    RUN_TEST_CASE(basic);
-    RUN_TEST_CASE(argument);
+UARF_TEST_SUITE() {
+    UARF_TEST_RUN_CASE(basic);
+    UARF_TEST_RUN_CASE(argument);
 
     return 0;
 }

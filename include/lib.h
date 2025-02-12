@@ -2,139 +2,227 @@
 
 #include "compiler.h"
 #include "kmod/pi.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#define sfence() asm volatile("sfence" ::: "memory")
-#define lfence() asm volatile("lfence" ::: "memory")
-#define mfence() asm volatile("mfence" ::: "memory")
+static __always_inline void uarf_sfence(void) {
+    asm volatile("sfence" ::: "memory");
+}
 
-static inline uint32_t get_seed(void) {
+static __always_inline void uarf_lfence(void) {
+    asm volatile("lfence" ::: "memory");
+}
+
+static __always_inline void uarf_mfence(void) {
+    asm volatile("mfence" ::: "memory");
+}
+
+static __always_inline uint32_t uarf_get_seed(void) {
     uint32_t seed;
-    asm("rdrand %0" : "=r"(seed));
+    asm volatile("rdrand %0" : "=r"(seed));
     return seed;
 }
 
 // Get a random 47 bit long number
-static inline uint64_t rand47(void) {
+static __always_inline uint64_t uarf_rand47(void) {
     return (_ul(rand()) << 16) ^ rand();
 }
 
-static inline void clflush(const volatile void *p) {
+static __always_inline void uarf_clflush(const volatile void *p) {
     asm volatile("clflush %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void prefetchw(const void *p) {
+static __always_inline void uarf_prefetchw(const void *p) {
     asm volatile("prefetchw %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void prefetcht0(const void *p) {
+static __always_inline void uarf_prefetcht0(const void *p) {
     asm volatile("prefetcht0 %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void prefetcht1(const void *p) {
+static __always_inline void uarf_prefetcht1(const void *p) {
     asm volatile("prefetcht1 %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void prefetcht2(const void *p) {
+static __always_inline void uarf_prefetcht2(const void *p) {
     asm volatile("prefetcht2 %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void prefetchnta(const void *p) {
+static __always_inline void uarf_prefetchnta(const void *p) {
     asm volatile("prefetchnta %0" ::"m"(*(char const *) p) : "memory");
 }
 
-static inline void cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
-                         uint32_t *edx) {
-    pi_cpuid(leaf, eax, ebx, ecx, edx);
+static __always_inline void uarf_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
+                                       uint32_t *ecx, uint32_t *edx) {
+    asm volatile("cpuid"
+                 : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
+                 : "0"(leaf), "1"(*ebx), "2"(*ecx), "3"(*edx));
 }
 
-static inline uint32_t cpuid_eax(uint32_t leaf) {
-    uint32_t eax;
-    cpuid(leaf, &eax, NULL, NULL, NULL);
+static __always_inline uint32_t uarf_cpuid_eax(uint32_t leaf) {
+    uint32_t eax = 0, ign = 0;
+
+    uarf_cpuid(leaf, &eax, &ign, &ign, &ign);
     return eax;
 }
 
-static inline uint32_t cpuid_ebx(uint32_t leaf) {
-    uint32_t ebx;
-    cpuid(leaf, NULL, &ebx, NULL, NULL);
+static __always_inline uint32_t uarf_cpuid_ebx(uint32_t leaf) {
+    uint32_t ebx = 0, ign = 0;
+
+    uarf_cpuid(leaf, &ign, &ebx, &ign, &ign);
     return ebx;
 }
 
-static inline uint32_t cpuid_ecx(uint32_t leaf) {
-    uint32_t ecx;
-    cpuid(leaf, NULL, NULL, &ecx, NULL);
+static __always_inline uint32_t uarf_cpuid_ecx(uint32_t leaf) {
+    uint32_t ecx = 0, ign = 0;
+
+    uarf_cpuid(leaf, &ign, &ign, &ecx, &ign);
     return ecx;
 }
 
-static inline uint32_t cpuid_edx(uint32_t leaf) {
-    uint32_t edx;
-    cpuid(leaf, NULL, NULL, NULL, &edx);
+static __always_inline uint32_t uarf_cpuid_edx(uint32_t leaf) {
+    uint32_t edx = 0, ign = 0;
+
+    uarf_cpuid(leaf, &ign, &ign, &ign, &edx);
     return edx;
 }
 
-static inline uint64_t rdmsr(uint32_t msr) {
-    return pi_rdmsr(msr);
+static __always_inline void uarf_cpuid_user(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
+                                            uint32_t *ecx, uint32_t *edx) {
+    uarf_pi_cpuid(leaf, eax, ebx, ecx, edx);
+}
+
+static __always_inline uint32_t uarf_cpuid_eax_user(uint32_t leaf) {
+    uint32_t eax;
+    uarf_cpuid_user(leaf, &eax, NULL, NULL, NULL);
+    return eax;
+}
+
+static __always_inline uint32_t uarf_cpuid_ebx_user(uint32_t leaf) {
+    uint32_t ebx;
+    uarf_cpuid_user(leaf, NULL, &ebx, NULL, NULL);
+    return ebx;
+}
+
+static __always_inline uint32_t uarf_cpuid_ecx_user(uint32_t leaf) {
+    uint32_t ecx;
+    uarf_cpuid_user(leaf, NULL, NULL, &ecx, NULL);
+    return ecx;
+}
+
+static __always_inline uint32_t uarf_cpuid_edx_user(uint32_t leaf) {
+    uint32_t edx;
+    uarf_cpuid_user(leaf, NULL, NULL, NULL, &edx);
+    return edx;
+}
+
+static __always_inline uint64_t uarf_rdmsr(uint32_t msr_idx) {
+    uint32_t low, high;
+
+    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr_idx));
+
+    return (((uint64_t) high) << 32) | low;
+}
+
+static __always_inline uint64_t uarf_rdmsr_user(uint32_t msr) {
+    return uarf_pi_rdmsr(msr);
+}
+
+static __always_inline void uarf_wrmsr(uint32_t msr_idx, uint64_t value) {
+    asm volatile("wrmsr" ::"c"(msr_idx), "a"((uint32_t) value),
+                 "d"((uint32_t) (value >> 32)));
 }
 
 // Writes `value` into `msr`
-static inline void wrmsr(uint32_t msr, uint64_t value) {
-    pi_wrmsr(msr, value);
+static __always_inline void uarf_wrmsr_user(uint32_t msr, uint64_t value) {
+    uarf_pi_wrmsr(msr, value);
 }
 
 // Set bit at index `bit` of `ms` to 1
-static inline void wrmsr_set(uint64_t msr, size_t bit) {
-    wrmsr(msr, BIT_SET(rdmsr(msr), bit));
+static __always_inline void uarf_wrmsr_set_user(uint64_t msr, size_t bit) {
+    uarf_wrmsr_user(msr, BIT_SET(uarf_rdmsr_user(msr), bit));
 }
 
 // Set bit at index `bit` of `msr` to 0
-static inline void wrmsr_clear(uint64_t msr, size_t bit) {
-    wrmsr(msr, BIT_CLEAR(rdmsr(msr), bit));
+static __always_inline void uarf_wrmsr_clear_user(uint64_t msr, size_t bit) {
+    uarf_wrmsr_user(msr, BIT_CLEAR(uarf_rdmsr_user(msr), bit));
 }
 
+// TODO: guard
 #define MSR_PRED_CMD                0x00000049
 #define MSR_PRED_CMD__IBPB          0
 #define MSR_EFER                    0xc0000080
 #define MSR_EFER__AUTOMATIC_IBRS_EN 21
+#define MSR_EFER__SCE               1
+#define MSR_STAR                    0xc0000081
+#define MSR_LSTAR                   0xc0000082
 
-#define IBPB()          wrmsr_set(MSR_PRED_CMD, MSR_PRED_CMD__IBPB);
-#define AUTO_IBRS_ON()  wrmsr_set(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
-#define AUTO_IBRS_OFF() wrmsr_clear(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
-
-static inline void invlpg(void *addr) {
-    pi_invlpg(_ul(addr));
+static __always_inline void uarf_ibpb(void) {
+    uarf_wrmsr_set_user(MSR_PRED_CMD, MSR_PRED_CMD__IBPB);
 }
 
-static inline void flush_tlb(void) {
-    pi_flush_tlb();
+static __always_inline void uarf_auto_ibrs_on(void) {
+    uarf_wrmsr_set_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
 }
 
-static inline unsigned int get_cpl(void) {
+static __always_inline void uarf_auto_ibrs_off(void) {
+    uarf_wrmsr_clear_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+}
+
+static __always_inline unsigned long uarf_read_cr3(void) {
+    unsigned long cr3;
+
+    asm volatile("mov %%cr3, %0" : "=r"(cr3));
+
+    return cr3;
+}
+
+static __always_inline void uarf_write_cr3(unsigned long cr3) {
+    asm volatile("mov %0, %%cr3" ::"r"(cr3));
+}
+
+static __always_inline void uarf_invlpg(void *addr) {
+    asm volatile("invlpg (%0)" ::"r"(addr) : "memory");
+}
+
+static __always_inline void uarf_invlpg_user(void *addr) {
+    uarf_pi_invlpg(_ul(addr));
+}
+
+static __always_inline void uarf_flush_tlb(void) {
+    uarf_write_cr3(uarf_read_cr3());
+}
+
+static __always_inline void uarf_flush_tlb_user(void) {
+    uarf_pi_flush_tlb();
+}
+
+static __always_inline unsigned int uarf_get_cpl(void) {
     unsigned int cs;
-    asm("mov %%cs, %0" : "=r"(cs));
+    asm volatile("mov %%cs, %0" : "=r"(cs));
     return cs & 0x03;
 }
 
-static inline uint64_t rdpmc(uint32_t index) {
+static __always_inline uint64_t uarf_rdpmc(uint32_t index) {
     uint32_t lo, hi;
     asm volatile("rdpmc" : "=a"(lo), "=d"(hi) : "c"(index));
     return ((uint64_t) hi << 32) | lo;
 }
 
-#define ASSERT(cond)                                                                     \
-    do {                                                                                 \
-        if (!(cond)) {                                                                   \
-            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
-                        STR((cond)));                                                    \
-            exit(1);                                                                     \
-        }                                                                                \
-    } while (0)
+static __always_inline void uarf_assert(bool cond) {
+    if (!(cond)) {
+        fprintf(stderr, "%s: Assert at %d failed: %s\n", __func__, __LINE__, STR((cond)));
+        exit(1);
+    }
+}
 
-#define BUG()                                                                            \
-    LOG_WARNING("Hit a Bug\n");                                                          \
-    exit(1)
+static __always_inline void uarf_bug(void) {
+    fprintf(stderr, "Hit a bug\n");
+    exit(1);
+}
 
-static inline uint64_t rdtsc(void) {
+static __always_inline uint64_t uarf_rdtsc(void) {
     unsigned int low, high;
 
     asm volatile("rdtsc" : "=a"(low), "=d"(high));
@@ -142,7 +230,7 @@ static inline uint64_t rdtsc(void) {
     return ((uint64_t) high << 32) | low;
 }
 
-static inline uint64_t rdtscp(void) {
+static __always_inline uint64_t uarf_rdtscp(void) {
     unsigned int low, high;
 
     asm volatile("rdtscp" : "=a"(low), "=d"(high)::"ecx");
@@ -151,12 +239,12 @@ static inline uint64_t rdtscp(void) {
 }
 
 // Get the number of cycles needed to read from `p`
-static inline uint64_t get_access_time(const void *p) {
+static __always_inline uint64_t uarf_get_access_time(const void *p) {
     // TODO: Check right use of rdtsc(p) and barriers
-    mfence();
-    uint64_t t0 = rdtsc();
+    uarf_mfence();
+    uint64_t t0 = uarf_rdtsc();
     *(volatile uint64_t *) p;
-    t0 = rdtscp() - t0;
-    mfence();
+    t0 = uarf_rdtscp() - t0;
+    uarf_mfence();
     return t0;
 }

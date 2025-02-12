@@ -4,10 +4,10 @@
  *
  */
 
+#include "kmod/pi.h"
 #include "lib.h"
 #include "mem.h"
 #include "test.h"
-#include "kmod/pi.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
@@ -15,33 +15,33 @@
 #define DEVICE "/dev/" DEVICE_NAME
 #define ROUNDS 100
 
-TEST_CASE(rdmsr_wrmsr) {
+UARF_TEST_CASE(rdmsr_wrmsr) {
 
-    pi_init();
+    uarf_pi_init();
 
-    uint64_t val_orig = pi_rdmsr(0x48);
+    uint64_t val_orig = uarf_pi_rdmsr(0x48);
 
     uint64_t val_new = val_orig ^ 1;
-    pi_wrmsr(0x48, val_new);
+    uarf_pi_wrmsr(0x48, val_new);
 
-    uint64_t val_changed = pi_rdmsr(0x48);
+    uint64_t val_changed = uarf_pi_rdmsr(0x48);
 
-    TEST_ASSERT((val_changed ^ 1) == val_orig);
+    UARF_TEST_ASSERT((val_changed ^ 1) == val_orig);
 
-    pi_wrmsr(0x48, val_orig);
+    uarf_pi_wrmsr(0x48, val_orig);
 
-    uint64_t val_final = pi_rdmsr(0x48);
+    uint64_t val_final = uarf_pi_rdmsr(0x48);
 
-    TEST_ASSERT(val_orig == val_final);
+    UARF_TEST_ASSERT(val_orig == val_final);
 
-    pi_deinit();
+    uarf_pi_deinit();
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(invlpg) {
-    pi_init();
-    int *loc = malloc_or_die(sizeof(int));
+UARF_TEST_CASE(invlpg) {
+    uarf_pi_init();
+    int *loc = uarf_malloc_or_die(sizeof(int));
 
     uint64_t t_c = 0;
     uint64_t t_n = 0;
@@ -49,37 +49,37 @@ TEST_CASE(invlpg) {
     for (size_t i = 0; i < ROUNDS; i++) {
         *(volatile int *) loc = 0;
 
-        mfence();
+        uarf_mfence();
 
-        t_c += get_access_time(loc);
+        t_c += uarf_get_access_time(loc);
 
-        mfence();
+        uarf_mfence();
 
-        pi_invlpg(_ul(loc));
+        uarf_pi_invlpg(_ul(loc));
 
-        mfence();
+        uarf_mfence();
 
-        t_n += get_access_time(loc);
+        t_n += uarf_get_access_time(loc);
     }
 
     t_c /= ROUNDS;
     t_n /= ROUNDS;
 
-    LOG_DEBUG("TLB:    %lu\n", t_c);
-    LOG_DEBUG("No TLB: %lu\n", t_n);
+    UARF_LOG_DEBUG("TLB:    %lu\n", t_c);
+    UARF_LOG_DEBUG("No TLB: %lu\n", t_n);
 
-    TEST_ASSERT(t_c < t_n);
+    UARF_TEST_ASSERT(t_c < t_n);
 
-    free_or_die(loc);
+    uarf_free_or_die(loc);
 
-    pi_deinit();
+    uarf_pi_deinit();
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(flush_tlb) {
-    pi_init();
-    int *loc = malloc_or_die(sizeof(int));
+UARF_TEST_CASE(flush_tlb) {
+    uarf_pi_init();
+    int *loc = uarf_malloc_or_die(sizeof(int));
 
     uint64_t t_c = 0;
     uint64_t t_n = 0;
@@ -87,62 +87,62 @@ TEST_CASE(flush_tlb) {
     for (size_t i = 0; i < ROUNDS; i++) {
         *(volatile int *) loc = 0;
 
-        mfence();
+        uarf_mfence();
 
-        t_c += get_access_time(loc);
+        t_c += uarf_get_access_time(loc);
 
-        mfence();
+        uarf_mfence();
 
-        pi_invlpg(_ul(loc));
+        uarf_pi_invlpg(_ul(loc));
 
-        mfence();
+        uarf_mfence();
 
-        t_n += get_access_time(loc);
+        t_n += uarf_get_access_time(loc);
     }
 
     t_c /= ROUNDS;
     t_n /= ROUNDS;
 
-    LOG_DEBUG("TLB:    %lu\n", t_c);
-    LOG_DEBUG("No TLB: %lu\n", t_n);
+    UARF_LOG_DEBUG("TLB:    %lu\n", t_c);
+    UARF_LOG_DEBUG("No TLB: %lu\n", t_n);
 
-    TEST_ASSERT(t_c < t_n);
+    UARF_TEST_ASSERT(t_c < t_n);
 
-    free_or_die(loc);
+    uarf_free_or_die(loc);
 
-    pi_deinit();
+    uarf_pi_deinit();
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(cpuid) {
-    pi_init();
+UARF_TEST_CASE(cpuid) {
+    uarf_pi_init();
 
     uint32_t eax, ebx, ecx, edx;
 
     uint32_t leaf = 0x80000021;
 
-    cpuid(leaf, &eax, &ebx, &ecx, &edx);
+    uarf_cpuid(leaf, &eax, &ebx, &ecx, &edx);
 
-    LOG_DEBUG("EAX: %x\n", eax);
-    LOG_DEBUG("EBX: %x\n", ebx);
-    LOG_DEBUG("ECX: %x\n", ecx);
-    LOG_DEBUG("EDX: %x\n", edx);
+    UARF_LOG_DEBUG("EAX: %x\n", eax);
+    UARF_LOG_DEBUG("EBX: %x\n", ebx);
+    UARF_LOG_DEBUG("ECX: %x\n", ecx);
+    UARF_LOG_DEBUG("EDX: %x\n", edx);
 
-    TEST_ASSERT(cpuid_eax(leaf) == eax);
-    TEST_ASSERT(cpuid_ebx(leaf) == ebx);
-    TEST_ASSERT(cpuid_ecx(leaf) == ecx);
-    TEST_ASSERT(cpuid_edx(leaf) == edx);
+    UARF_TEST_ASSERT(uarf_cpuid_eax(leaf) == eax);
+    UARF_TEST_ASSERT(uarf_cpuid_ebx(leaf) == ebx);
+    UARF_TEST_ASSERT(uarf_cpuid_ecx(leaf) == ecx);
+    UARF_TEST_ASSERT(uarf_cpuid_edx(leaf) == edx);
 
-    pi_deinit();
-    TEST_PASS();
+    uarf_pi_deinit();
+    UARF_TEST_PASS();
 }
 
-TEST_SUITE() {
-    RUN_TEST_CASE(rdmsr_wrmsr);
-    RUN_TEST_CASE(invlpg);
-    RUN_TEST_CASE(flush_tlb);
-    RUN_TEST_CASE(cpuid);
+UARF_TEST_SUITE() {
+    UARF_TEST_RUN_CASE(rdmsr_wrmsr);
+    UARF_TEST_RUN_CASE(invlpg);
+    UARF_TEST_RUN_CASE(flush_tlb);
+    UARF_TEST_RUN_CASE(cpuid);
 
     return 0;
 }

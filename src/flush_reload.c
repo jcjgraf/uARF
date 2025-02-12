@@ -5,22 +5,22 @@
 #include "mem.h"
 #include <string.h>
 
-void fr_flush(struct FrConfig *conf) {
-    LOG_TRACE("(%p)\n", conf);
-    mfence();
+void uarf_fr_flush(UarfFrConfig *conf) {
+    UARF_LOG_TRACE("(%p)\n", conf);
+    uarf_mfence();
     for (uint64_t i = 0; i < conf->num_slots; i++) {
         volatile void *p = conf->buf.handle_p + i * FR_STRIDE;
-        clflush(p);
+        uarf_clflush(p);
     }
-    mfence(); // Required to enforce ordering of cl flush with subsequent memory
-              // operations on AMD
-    sfence();
-    lfence();
+    uarf_mfence(); // Required to enforce ordering of cl flush with subsequent memory
+                   // operations on AMD
+    uarf_sfence();
+    uarf_lfence();
 }
 
 // Calculate in which bin `iteration` goes
-size_t get_bin(struct FrConfig *conf, size_t iteration) {
-    LOG_TRACE("(%p, %lu)\n", conf, iteration);
+static size_t uarf_get_bin(UarfFrConfig *conf, size_t iteration) {
+    UARF_LOG_TRACE("(%p, %lu)\n", conf, iteration);
 
     for (size_t i = 0; i < conf->num_bins; i++) {
         if (iteration <= conf->bin_map[i]) {
@@ -32,37 +32,37 @@ size_t get_bin(struct FrConfig *conf, size_t iteration) {
     return conf->num_bins - 1;
 }
 
-void fr_reload_binned(struct FrConfig *conf, size_t iteration) {
-    LOG_TRACE("(%p, %lu)\n", conf, iteration);
-    mfence();
-    size_t bin_i = get_bin(conf, iteration);
+void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
+    UARF_LOG_TRACE("(%p, %lu)\n", conf, iteration);
+    uarf_mfence();
+    size_t bin_i = uarf_get_bin(conf, iteration);
     uint32_t *res_bin_p = (uint32_t *) (conf->res_p + bin_i * conf->num_slots);
-    LOG_DEBUG("result address: %p\n", res_bin_p);
+    UARF_LOG_DEBUG("result address: %p\n", res_bin_p);
 
     // Should be completely unrolled to prevent data triggering the data cache prefetcher
 #pragma GCC unroll 1024
     for (uint64_t k = 0; k < conf->num_slots; ++k) {
         size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
         void *p = conf->buf.handle_p + FR_STRIDE * buf_i;
-        uint64_t dt = get_access_time(p);
+        uint64_t dt = uarf_get_access_time(p);
         if (dt < conf->thresh) {
             res_bin_p[buf_i]++;
         }
     }
-    mfence();
+    uarf_mfence();
 }
 
 // Initialize the flush and reload buffer, its dummy version  and history buffer.
 // Needs to be done from kernel space
-struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
-    LOG_TRACE("(%u, %u, %p)\n", num_slots, num_bins, bin_map);
+UarfFrConfig uarf_fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
+    UARF_LOG_TRACE("(%u, %u, %p)\n", num_slots, num_bins, bin_map);
 
     // Assert nm_slots is power of two. Fr_reload_range only works for 2^n
-    ASSERT(IS_POW_TWO(num_slots));
+    uarf_assert(IS_POW_TWO(num_slots));
 
-    ASSERT(num_bins != 0);
+    uarf_assert(num_bins != 0);
 
-    struct FrConfig conf = (struct FrConfig){
+    UarfFrConfig conf = (UarfFrConfig) {
         .buf = {.base_addr = FR_BUF,
                 .addr = FR_BUF + FR_OFFSET,
                 .handle_addr = FR_BUF + FR_OFFSET},
@@ -79,9 +79,9 @@ struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
         memcpy(conf.bin_map, bin_map, FR_CONFIG_BIN_MAPPING_SIZE * sizeof(size_t));
     }
 
-    map_or_die(conf.buf.base_p, conf.buf_size);
-    map_or_die(conf.buf2.base_p, conf.buf_size);
-    map_or_die(conf.res_p, conf.res_size);
+    uarf_map_or_die(conf.buf.base_p, conf.buf_size);
+    uarf_map_or_die(conf.buf2.base_p, conf.buf_size);
+    uarf_map_or_die(conf.res_p, conf.res_size);
 
     // Ensure it is not zero-page backed
     for (size_t i = 0; i < conf.num_slots; i++) {
@@ -97,20 +97,20 @@ struct FrConfig fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
     return conf;
 }
 
-void fr_deinit(struct FrConfig *conf) {
-    LOG_TRACE("(%p)\n", conf);
+void uarf_fr_deinit(UarfFrConfig *conf) {
+    UARF_LOG_TRACE("(%p)\n", conf);
 
-    unmap_or_die(conf->buf.base_p, conf->buf_size);
-    unmap_or_die(conf->buf2.base_p, conf->buf_size);
-    unmap_or_die(conf->res_p, conf->res_size);
+    uarf_unmap_or_die(conf->buf.base_p, conf->buf_size);
+    uarf_unmap_or_die(conf->buf2.base_p, conf->buf_size);
+    uarf_unmap_or_die(conf->res_p, conf->res_size);
 }
 
-void fr_print(struct FrConfig *conf) {
-    LOG_TRACE("(%p)\n", conf);
+void uarf_fr_print(UarfFrConfig *conf) {
+    UARF_LOG_TRACE("(%p)\n", conf);
 
     if (conf->num_bins == 1) {
         for (size_t i = 0; i < conf->num_slots; i++) {
-            printf("%s%04u " LOG_C_RESET, conf->res_p[i] ? LOG_C_DARK_RED : "",
+            printf("%s%04u " UARF_LOG_C_RESET, conf->res_p[i] ? UARF_LOG_C_DARK_RED : "",
                    conf->res_p[i]);
         }
         printf("\n");
@@ -137,7 +137,7 @@ void fr_print(struct FrConfig *conf) {
         for (size_t slot = 0; slot < conf->num_slots; slot++) {
             uint32_t hits = *(conf->res_p + bin * conf->num_slots + slot);
             total[slot] += hits;
-            printf("%s%04u " LOG_C_RESET, hits ? LOG_C_DARK_RED : "", hits);
+            printf("%s%04u " UARF_LOG_C_RESET, hits ? UARF_LOG_C_DARK_RED : "", hits);
         }
         printf("\n");
     }
@@ -151,7 +151,8 @@ void fr_print(struct FrConfig *conf) {
     // Print total sum
     printf("       Total: ");
     for (size_t i = 0; i < conf->num_slots; i++) {
-        printf("%s%04ld " LOG_C_RESET, total[i] ? LOG_C_DARK_RED : "", total[i]);
+        printf("%s%04ld " UARF_LOG_C_RESET, total[i] ? UARF_LOG_C_DARK_RED : "",
+               total[i]);
     }
     printf("\n");
 

@@ -1,40 +1,43 @@
+#pragma once
+
 #include "log.h"
 #include <compiler.h>
 #include <stdlib.h>
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_TEST
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_TEST
 #endif
 
-#define TEST_CASE_PREFIX test_case_
+#define UARF_TEST_CASE_PREFIX test_case_
 
-#define TEST_CASE(name) static unsigned long __text CAT(TEST_CASE_PREFIX, name)(void)
+#define UARF_TEST_CASE(name)                                                             \
+    static unsigned long __text CAT(UARF_TEST_CASE_PREFIX, name)(void)
 
-#define TEST_CASE_ARG(name, arg)                                                         \
-    static unsigned long __text CAT(TEST_CASE_PREFIX, name)(void *arg)
+#define UARF_TEST_CASE_ARG(name, arg)                                                    \
+    static unsigned long __text CAT(UARF_TEST_CASE_PREFIX, name)(void *arg)
 
-#define TEST_SUITE() int main(void)
+#define UARF_TEST_SUITE() int main(void)
 
-#define RUN_TEST_CASE(name, ...)                                                         \
-    LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                           \
-    CAT(TEST_CASE_PREFIX, name)()
+#define UARF_TEST_RUN_CASE(name, ...)                                                    \
+    UARF_LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                      \
+    CAT(UARF_TEST_CASE_PREFIX, name)()
 
-#define RUN_TEST_CASE_ARG(name, arg, ...)                                                \
-    LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                           \
-    CAT(TEST_CASE_PREFIX, name)(_ptr(arg))
+#define UARF_TEST_RUN_CASE_ARG(name, arg, ...)                                           \
+    UARF_LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                      \
+    CAT(UARF_TEST_CASE_PREFIX, name)(_ptr(arg))
 
-#define TEST_PASS() return 0
-#define TEST_ASSERT(cond)                                                                \
+#define UARF_TEST_PASS() return 0
+#define UARF_TEST_ASSERT(cond)                                                           \
     ({                                                                                   \
         if (!(cond)) {                                                                   \
-            LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
-                        STR((cond)));                                                    \
+            UARF_LOG_WARNING("%s: Assert at %d failed: %s\n", __func__, __LINE__,        \
+                             STR((cond)));                                               \
             exit(1);                                                                     \
         }                                                                                \
     })
 
-#define INIT_SRAND(var)                                                                  \
+#define UARF_INIT_SRAND(var)                                                             \
     uint32_t var;                                                                        \
     asm("rdrand %0" : "=r"(var));                                                        \
     srand(var)

@@ -2,19 +2,21 @@
 
 #include <linux/types.h>
 
-#define IOCTL_RDMSR     _IOWR('m', 1, struct req_msr)
-#define IOCTL_WRMSR     _IOWR('m', 2, struct req_msr)
-#define IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
-#define IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
-#define IOCTL_CPUID     _IOWR('m', 5, struct req_cpuid)
+#define UARF_IOCTL_RDMSR     _IOWR('m', 1, UarfPiReqMsr)
+#define UARF_IOCTL_WRMSR     _IOWR('m', 2, UarfPiReqMsr)
+#define UARF_IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
+#define UARF_IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
+#define UARF_IOCTL_CPUID     _IOWR('m', 5, UarfPiReqCpuid)
 
 // For rdmsr/rwmsr
-struct req_msr {
+typedef struct UarfPiReqMsr UarfPiReqMsr;
+struct UarfPiReqMsr {
     uint32_t msr;
     uint64_t value;
 };
 
-struct req_cpuid {
+typedef struct UarfPiReqCpuid UarfPiReqCpuid;
+struct UarfPiReqCpuid {
     uint32_t eax; // Leaf
     uint32_t ebx;
     uint32_t ecx; // Sub-leaf

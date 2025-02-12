@@ -17,14 +17,14 @@ static struct class *cls;
 static struct device *dev;
 static unsigned long cr4;
 
-static long rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+static long uarf_rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_info("RAP IOCTL received");
 
     switch (cmd) {
-    case IOCTL_RAP: {
+    case UARF_IOCTL_RAP: {
 
         unsigned long cr4_mod = 0;
-        struct rap_request *req;
+        struct UarfRapRequest *req;
 
         if (cr4 & (X86_CR4_SMEP | X86_CR4_SMAP)) {
             pr_debug("Need to temporarely disable SMEP&SMAP\n");
@@ -37,7 +37,7 @@ static long rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         if (cr4_mod) {
             asm volatile("mov %0 , %%cr4" : "+r"(cr4_mod) : : "memory");
         }
-        req = (struct rap_request *) arg;
+        req = (struct UarfRapRequest *) arg;
 
         req->func(req->data);
 
@@ -52,7 +52,7 @@ static long rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     }
     default: {
         pr_warn("Unsupported command encountered: %u\n", cmd);
-        pr_debug("RAP: %lu\n", IOCTL_RAP);
+        pr_debug("RAP: %lu\n", UARF_IOCTL_RAP);
         return -EINVAL;
     }
     }
@@ -60,7 +60,7 @@ static long rap_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 }
 
 static struct file_operations fops = {
-    .unlocked_ioctl = rap_ioctl,
+    .unlocked_ioctl = uarf_rap_ioctl,
 };
 
 // Gives read/write access to all users
@@ -76,7 +76,7 @@ static char *devnode(struct device *dev, umode_t *mode) {
     return NULL;
 }
 
-static int __init rap_init(void) {
+static int __init uarf_rap_init(void) {
     pr_debug("rap module init\n");
 
     major = register_chrdev(0, "rap", &fops);
@@ -118,7 +118,7 @@ static int __init rap_init(void) {
     return 0;
 }
 
-static void __exit rap_exit(void) {
+static void __exit uarf_rap_exit(void) {
     pr_debug("rap module exit\n");
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
@@ -126,7 +126,7 @@ static void __exit rap_exit(void) {
     pr_info("Device %s exited successfully\n", "rap");
 }
 
-module_init(rap_init);
-module_exit(rap_exit);
+module_init(uarf_rap_init);
+module_exit(uarf_rap_exit);
 
 MODULE_LICENSE("GPL");

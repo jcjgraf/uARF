@@ -58,6 +58,8 @@
  *       GS |             |             | XXXX ! XXXX |             |
  */
 
+#include <ucall_common.h>
+
 #include "uarf/flush_reload.h"
 #include "uarf/jita.h"
 #include "uarf/kmod/pi.h"
@@ -69,11 +71,9 @@
 #include "uarf/pfc.h"
 #include "uarf/pfc_amd.h"
 
-#include <ucall_common.h>
-
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_TEST
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_TEST
 #endif
 
 #define CREATE_TCD(t_mode, s_mode, a_ibrs, main_jita)                   \
@@ -86,19 +86,19 @@
 		.signal_mode = s_mode, .auto_ibrs = a_ibrs,             \
 	}
 
-psnip_declare(history, psnip_history);
-psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
-psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
-psnip_declare(dst_gadget, psnip_dst_gadget);
-psnip_declare(dst_dummy, psnip_dst_dummy);
+uarf_psnip_declare(history, psnip_history);
+uarf_psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
+uarf_psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
+uarf_psnip_declare(dst_gadget, psnip_dst_gadget);
+uarf_psnip_declare(dst_dummy, psnip_dst_dummy);
 
-psnip_declare(rdpmc, psnip_rdpmc);
+uarf_psnip_declare(rdpmc, psnip_rdpmc);
 // psnip_declare(rdpmc_start, psnip_rdpmc_start);
 // psnip_declare(rdpmc_end, psnip_rdpmc_end);
 
-psnip_declare(exp_guest_bti_jmp, psnip_jmp);
+uarf_psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
-psnip_declare_define(psnip_ret, "ret\n\t");
+uarf_psnip_declare_define(psnip_ret, "ret\n\t");
 
 enum mode {
 	HOST_USER,
@@ -119,9 +119,9 @@ struct TestCaseData {
 	uint32_t num_cands;
 	uint32_t num_rounds;
 	uint32_t num_train_rounds;
-	jita_ctxt_t *jita_main;
-	jita_ctxt_t *jita_gadget;
-	jita_ctxt_t *jita_dummy;
+	UarfJitaCtxt *jita_main;
+	UarfJitaCtxt *jita_gadget;
+	UarfJitaCtxt *jita_dummy;
 	bool match_history;
 	enum mode train_mode;
 	enum mode signal_mode;
@@ -129,19 +129,19 @@ struct TestCaseData {
 };
 
 struct GuestData {
-	struct SpecData spec_data;
+	UarfSpecData spec_data;
 };
 
 // Out globals that we also need in our guest
 struct GuestData guest_data;
 
-stub_t stub_main;
-stub_t stub_gadget;
-stub_t stub_dummy;
+UarfStub stub_main;
+UarfStub stub_gadget;
+UarfStub stub_dummy;
 
 static void run_spec_global(void)
 {
-	struct SpecData *data = &guest_data.spec_data;
+	UarfSpecData *data = &guest_data.spec_data;
 
 	// Ensure we have access to the required data
 	// It easier to debug if we fail here that later
@@ -171,45 +171,46 @@ static void guest_main(void)
 // TODO: Move to helper
 void map_mem_to_guest(struct kvm_vm *vm, uint64_t va, uint64_t size)
 {
-	LOG_TRACE("(vm: %p, va: 0x%lx, size: %lu)\n", vm, va, size);
+	UARF_LOG_TRACE("(vm: %p, va: 0x%lx, size: %lu)\n", vm, va, size);
 	static uint64_t next_slot = NR_MEM_REGIONS;
 	static uint64_t used_pages = 0;
 
 	uint64_t va_aligned = ALIGN_DOWN(va, PAGE_SIZE);
-	LOG_DEBUG("Aligned 0x%lx to 0x%lx\n", va, va_aligned);
+	UARF_LOG_DEBUG("Aligned 0x%lx to 0x%lx\n", va, va_aligned);
 
 	uint64_t num_pages_to_map = DIV_ROUND_UP(size, PAGE_SIZE);
 	uint64_t gpa =
 		(vm->max_gfn - used_pages - num_pages_to_map) * PAGE_SIZE;
 
-	LOG_DEBUG(
+	UARF_LOG_DEBUG(
 		"Add %lu pages (required: %lu B) of physical memory to guest at gpa 0x%lx (slot %lu)\n",
 		num_pages_to_map, size, gpa, next_slot);
 	vm_userspace_mem_region_add(vm, DEFAULT_VM_MEM_SRC, gpa, next_slot,
 				    num_pages_to_map, 0);
 
-	LOG_DEBUG("Add mapping in guest for gpa 0x%lx to gva 0x%lx\n", gpa,
-		  va_aligned);
+	UARF_LOG_DEBUG("Add mapping in guest for gpa 0x%lx to gva 0x%lx\n", gpa,
+		       va_aligned);
 	virt_map(vm, va_aligned, gpa, num_pages_to_map);
 	used_pages += num_pages_to_map;
 	next_slot++;
 
 	uint64_t *addr = addr_gpa2hva(vm, (vm_paddr_t)gpa);
-	LOG_DEBUG("Copy %lu bytes from 0x%lx to 0x%lx\n", size, va, _ul(addr));
+	UARF_LOG_DEBUG("Copy %lu bytes from 0x%lx to 0x%lx\n", size, va,
+		       _ul(addr));
 	memcpy(addr, _ptr(va), size);
 }
 
 // TODO: Move to helper
-void map_stub_to_guest(struct kvm_vm *vm, stub_t *stub)
+void map_UarfStubo_guest(struct kvm_vm *vm, UarfStub *stub)
 {
-	LOG_TRACE("(vm: %p, stub: %p)\n", vm, stub);
+	UARF_LOG_TRACE("(vm: %p, stub: %p)\n", vm, stub);
 	map_mem_to_guest(vm, stub->base_addr, stub->size);
 }
 
 // TODO: Move to helper
 static void run_vcpu(struct kvm_vcpu *vcpu)
 {
-	LOG_TRACE("(vcpu: %p)\n", vcpu);
+	UARF_LOG_TRACE("(vcpu: %p)\n", vcpu);
 	struct ucall uc;
 
 	while (true) {
@@ -234,13 +235,13 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 	}
 }
 
-static inline void run_spec_host(struct SpecData *sd, struct FrConfig *fr)
+static inline void run_spec_host(UarfSpecData *sd, UarfFrConfig *fr)
 {
 	guest_data.spec_data = *sd;
 	run_spec_global();
 }
 
-static void run_spec_guest(struct SpecData *sd, struct FrConfig *fr)
+static void run_spec_guest(UarfSpecData *sd, UarfFrConfig *fr)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -259,9 +260,9 @@ static void run_spec_guest(struct SpecData *sd, struct FrConfig *fr)
 	sync_global_to_guest(vm, stub_dummy);
 
 	// Map stubs
-	map_stub_to_guest(vm, &stub_main);
-	map_stub_to_guest(vm, &stub_gadget);
-	map_stub_to_guest(vm, &stub_dummy);
+	map_UarfStubo_guest(vm, &stub_main);
+	map_UarfStubo_guest(vm, &stub_gadget);
+	map_UarfStubo_guest(vm, &stub_dummy);
 
 	// Map other memory
 	map_mem_to_guest(vm, fr->buf.base_addr, fr->buf_size);
@@ -275,50 +276,54 @@ static void run_spec_guest(struct SpecData *sd, struct FrConfig *fr)
 	kvm_vm_free(vm);
 }
 
-TEST_CASE_ARG(basic, arg)
+UARF_TEST_CASE_ARG(basic, arg)
 {
 	struct TestCaseData *data = (struct TestCaseData *)arg;
 	srand(data->seed);
 
-	LOG_INFO("%s -> %s, autoIBRS %s\n", MODE_STR[data->train_mode],
-		 MODE_STR[data->signal_mode], data->auto_ibrs ? "yes" : "no");
+	UARF_LOG_INFO("%s -> %s, autoIBRS %s\n", MODE_STR[data->train_mode],
+		      MODE_STR[data->signal_mode],
+		      data->auto_ibrs ? "yes" : "no");
 
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 
 	uint64_t extra_pages = 10 * (3 + 512);
 
-	struct FrConfig fr = fr_init(8, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
+	UarfFrConfig fr = uarf_fr_init(8, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
 	// struct FrConfig fr = fr_init(8, 1, NULL);
 
-	struct pm pm;
-	pm_init(&pm, AMD_EX_RET_BRN_IND_MISP);
+	UarfPm pm;
+	uarf_pm_init(&pm, UARF_AMD_EX_RET_BRN_IND_MISP);
 
-	stub_main = stub_init();
-	stub_gadget = stub_init();
-	stub_dummy = stub_init();
+	stub_main = uarf_stub_init();
+	stub_gadget = uarf_stub_init();
+	stub_dummy = uarf_stub_init();
 
-	IBPB();
+	uarf_ibpb();
 
 	if (data->auto_ibrs) {
-		AUTO_IBRS_ON();
+		uarf_auto_ibrs_on();
 	} else {
-		AUTO_IBRS_OFF();
+		uarf_auto_ibrs_off();
 	}
 
-	fr_reset(&fr);
+	uarf_fr_reset(&fr);
 
 	for (size_t c = 0; c < data->num_cands; c++) {
-		jita_allocate(data->jita_main, &stub_main, rand47());
-		jita_allocate(data->jita_gadget, &stub_gadget, rand47());
-		jita_allocate(data->jita_dummy, &stub_dummy, rand47());
+		uarf_jita_allocate(data->jita_main, &stub_main, uarf_rand47());
+		uarf_jita_allocate(data->jita_gadget, &stub_gadget,
+				   uarf_rand47());
+		uarf_jita_allocate(data->jita_dummy, &stub_dummy,
+				   uarf_rand47());
 
-		struct history h1 = get_randomized_history();
+		UarfHistory h1 = uarf_get_randomized_history();
 
-		struct history h2 =
-			data->match_history ? h1 : get_randomized_history();
+		UarfHistory h2 = data->match_history ?
+					 h1 :
+					 uarf_get_randomized_history();
 
-		struct SpecData train_data = {
+		UarfSpecData train_data = {
 			.spec_prim_p = stub_main.addr,
 			.spec_dst_p_p = _ul(&stub_gadget.addr),
 			.fr_buf_p = fr.buf2.addr,
@@ -329,7 +334,7 @@ TEST_CASE_ARG(basic, arg)
 			.ostack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
 		};
 
-		struct SpecData signal_data = {
+		UarfSpecData signal_data = {
 			.spec_prim_p = stub_main.addr,
 			.spec_dst_p_p = _ul(&stub_dummy.addr),
 			// .spec_dst_p_p = _ul(&stub_gadget.addr),
@@ -344,11 +349,13 @@ TEST_CASE_ARG(basic, arg)
 		for (size_t r = 0; r < data->num_rounds; r++) {
 			for (size_t t = 0; t < data->num_train_rounds; t++) {
 				// Prepare stacks
-				cstack_reset(&train_data.ustack);
-				cstack_reset(&train_data.istack);
-				cstack_reset(&train_data.ostack);
-				cstack_push(&train_data.istack, pm.pfc.index);
-				cstack_push(&train_data.istack, pm.pfc.index);
+				uarf_cstack_reset(&train_data.ustack);
+				uarf_cstack_reset(&train_data.istack);
+				uarf_cstack_reset(&train_data.ostack);
+				uarf_cstack_push(&train_data.istack,
+						 pm.pfc.index);
+				uarf_cstack_push(&train_data.istack,
+						 pm.pfc.index);
 
 				switch (data->train_mode) {
 				case HOST_USER:
@@ -358,7 +365,7 @@ TEST_CASE_ARG(basic, arg)
 				case HOST_SUPERVISOR:
 					// Ensure the required data is paged, as when executing in supervisor mode we
 					// cannot handle pagefaults => error
-					*(volatile char *)run_spec;
+					*(volatile char *)uarf_run_spec;
 					*(volatile char *)train_data.spec_prim_p;
 					**(volatile char **)
 						  train_data.spec_dst_p_p;
@@ -369,10 +376,11 @@ TEST_CASE_ARG(basic, arg)
 						  signal_data.spec_dst_p_p;
 					*(volatile char *)signal_data.fr_buf_p;
 
-					rap_call(run_spec, &train_data);
+					uarf_rap_call(uarf_run_spec,
+						      &train_data);
 					break;
 				case GUEST_USER:
-					LOG_WARNING(
+					UARF_LOG_WARNING(
 						"Running in guest user is currently not supported\n");
 					break;
 				case GUEST_SUPERVISOR:
@@ -389,9 +397,9 @@ TEST_CASE_ARG(basic, arg)
 					sync_global_to_guest(vm, stub_dummy);
 
 					// Map stubs
-					map_stub_to_guest(vm, &stub_main);
-					map_stub_to_guest(vm, &stub_gadget);
-					map_stub_to_guest(vm, &stub_dummy);
+					map_UarfStubo_guest(vm, &stub_main);
+					map_UarfStubo_guest(vm, &stub_gadget);
+					map_UarfStubo_guest(vm, &stub_dummy);
 
 					// Map other memory
 
@@ -410,33 +418,33 @@ TEST_CASE_ARG(basic, arg)
 			}
 
 			// Prepare stacks
-			cstack_reset(&signal_data.ustack);
-			cstack_reset(&signal_data.istack);
-			cstack_reset(&signal_data.ostack);
-			cstack_push(&signal_data.istack, pm.pfc.index);
-			cstack_push(&signal_data.istack, pm.pfc.index);
+			uarf_cstack_reset(&signal_data.ustack);
+			uarf_cstack_reset(&signal_data.istack);
+			uarf_cstack_reset(&signal_data.ostack);
+			uarf_cstack_push(&signal_data.istack, pm.pfc.index);
+			uarf_cstack_push(&signal_data.istack, pm.pfc.index);
 
 			switch (data->signal_mode) {
 			case HOST_USER:
-				fr_flush(&fr);
+				uarf_fr_flush(&fr);
 				guest_data.spec_data = signal_data;
 				run_spec_global();
 
 				signal_data = guest_data.spec_data;
 
 				({
-					uint64_t end_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t end_hi =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_hi =
-						cstack_pop(&signal_data.ostack);
+					uint64_t end_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t end_hi = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_hi = uarf_cstack_pop(
+						&signal_data.ostack);
 
-					uint64_t end = pm_transform_raw1(
+					uint64_t end = uarf_pm_transform_raw1(
 						&pm.pfc, end_lo, end_hi);
-					uint64_t start = pm_transform_raw1(
+					uint64_t start = uarf_pm_transform_raw1(
 						&pm.pfc, start_lo, start_hi);
 
 					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
@@ -449,34 +457,34 @@ TEST_CASE_ARG(basic, arg)
 					pm.count += end - start;
 				});
 
-				fr_reload_binned(&fr, r);
+				uarf_fr_reload_binned(&fr, r);
 				break;
 			case HOST_SUPERVISOR:
 				// Ensure the required data is paged, as when executing in supervisor mode we
 				// cannot handle pagefaults => error
-				*(volatile char *)run_spec;
+				*(volatile char *)uarf_run_spec;
 				*(volatile char *)train_data.spec_prim_p;
 				**(volatile char **)train_data.spec_dst_p_p;
 				*(volatile char *)train_data.fr_buf_p;
 				*(volatile char *)signal_data.spec_prim_p;
 				**(volatile char **)signal_data.spec_dst_p_p;
 				*(volatile char *)signal_data.fr_buf_p;
-				fr_flush(&fr);
-				rap_call(run_spec, &signal_data);
+				uarf_fr_flush(&fr);
+				uarf_rap_call(uarf_run_spec, &signal_data);
 
 				({
-					uint64_t end_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t end_hi =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_hi =
-						cstack_pop(&signal_data.ostack);
+					uint64_t end_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t end_hi = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_hi = uarf_cstack_pop(
+						&signal_data.ostack);
 
-					uint64_t end = pm_transform_raw1(
+					uint64_t end = uarf_pm_transform_raw1(
 						&pm.pfc, end_lo, end_hi);
-					uint64_t start = pm_transform_raw1(
+					uint64_t start = uarf_pm_transform_raw1(
 						&pm.pfc, start_lo, start_hi);
 
 					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
@@ -489,10 +497,10 @@ TEST_CASE_ARG(basic, arg)
 					pm.count += end - start;
 				});
 
-				fr_reload_binned(&fr, r);
+				uarf_fr_reload_binned(&fr, r);
 				break;
 			case GUEST_USER:
-				LOG_WARNING(
+				UARF_LOG_WARNING(
 					"Running in guest user is currently not supported\n");
 				break;
 			case GUEST_SUPERVISOR:
@@ -509,9 +517,9 @@ TEST_CASE_ARG(basic, arg)
 				sync_global_to_guest(vm, stub_dummy);
 
 				// Map stubs
-				map_stub_to_guest(vm, &stub_main);
-				map_stub_to_guest(vm, &stub_gadget);
-				map_stub_to_guest(vm, &stub_dummy);
+				map_UarfStubo_guest(vm, &stub_main);
+				map_UarfStubo_guest(vm, &stub_gadget);
+				map_UarfStubo_guest(vm, &stub_dummy);
 
 				// Map other memory
 				map_mem_to_guest(vm, fr.buf.base_addr,
@@ -521,24 +529,24 @@ TEST_CASE_ARG(basic, arg)
 				map_mem_to_guest(vm, fr.res_addr, fr.res_size);
 
 				fr.buf.handle_p = addr_gva2hva(vm, fr.buf.addr);
-				fr_flush(&fr);
+				uarf_fr_flush(&fr);
 				run_vcpu(vcpu);
 
 				sync_global_from_guest(vm, guest_data);
 
 				({
-					uint64_t end_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t end_hi =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_lo =
-						cstack_pop(&signal_data.ostack);
-					uint64_t start_hi =
-						cstack_pop(&signal_data.ostack);
+					uint64_t end_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t end_hi = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_lo = uarf_cstack_pop(
+						&signal_data.ostack);
+					uint64_t start_hi = uarf_cstack_pop(
+						&signal_data.ostack);
 
-					uint64_t end = pm_transform_raw1(
+					uint64_t end = uarf_pm_transform_raw1(
 						&pm.pfc, end_lo, end_hi);
-					uint64_t start = pm_transform_raw1(
+					uint64_t start = uarf_pm_transform_raw1(
 						&pm.pfc, start_lo, start_hi);
 
 					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
@@ -551,65 +559,65 @@ TEST_CASE_ARG(basic, arg)
 					pm.count += end - start;
 				});
 
-				fr_reload_binned(&fr, r);
+				uarf_fr_reload_binned(&fr, r);
 
 				kvm_vm_free(vm);
 				break;
 			}
 		}
 
-		jita_deallocate(data->jita_main, &stub_main);
-		jita_deallocate(data->jita_gadget, &stub_gadget);
-		jita_deallocate(data->jita_dummy, &stub_dummy);
+		uarf_jita_deallocate(data->jita_main, &stub_main);
+		uarf_jita_deallocate(data->jita_gadget, &stub_gadget);
+		uarf_jita_deallocate(data->jita_dummy, &stub_dummy);
 	}
 
-	fr_print(&fr);
+	uarf_fr_print(&fr);
 
-	fr_deinit(&fr);
+	uarf_fr_deinit(&fr);
 
-	printf("pm:    %lu\n", pm_get(&pm));
-	pm_deinit(&pm);
+	printf("pm:    %lu\n", uarf_pm_get(&pm));
+	uarf_pm_deinit(&pm);
 
-	TEST_PASS();
+	UARF_TEST_PASS();
 }
 
 static struct TestCaseData data[32];
 
-TEST_SUITE()
+UARF_TEST_SUITE()
 {
-	log_system_level = LOG_LEVEL_INFO;
+	uarf_log_system_level = UARF_LOG_LEVEL_INFO;
 
-	uint32_t seed = get_seed();
-	LOG_INFO("Using seed: %u\n", seed);
-	pi_init();
-	rap_init();
+	uint32_t seed = uarf_get_seed();
+	UARF_LOG_INFO("Using seed: %u\n", seed);
+	uarf_pi_init();
+	uarf_rap_init();
 
-	jita_ctxt_t jita_main_call = jita_init();
-	jita_ctxt_t jita_main_jmp = jita_init();
-	jita_ctxt_t jita_gadget = jita_init();
-	jita_ctxt_t jita_dummy = jita_init();
+	UarfJitaCtxt jita_main_call = uarf_jita_init();
+	UarfJitaCtxt jita_main_jmp = uarf_jita_init();
+	UarfJitaCtxt jita_gadget = uarf_jita_init();
+	UarfJitaCtxt jita_dummy = uarf_jita_init();
 
-	jita_push_psnip(&jita_main_call, &psnip_history);
-	jita_push_psnip(&jita_main_call, &psnip_history);
-	jita_push_psnip(&jita_main_call, &psnip_history);
-	jita_push_psnip(&jita_main_call, &psnip_history);
-	jita_push_psnip(&jita_main_call, &psnip_history);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
 
-	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_rdpmc);
 
-	jita_clone(&jita_main_call, &jita_main_jmp);
+	uarf_jita_clone(&jita_main_call, &jita_main_jmp);
 
-	jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
-	jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
+	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
 
-	jita_push_psnip(&jita_main_call, &psnip_rdpmc);
-	jita_push_psnip(&jita_main_jmp, &psnip_rdpmc);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_rdpmc);
+	uarf_jita_push_psnip(&jita_main_jmp, &psnip_rdpmc);
 
-	jita_push_psnip(&jita_main_call, &psnip_ret);
-	jita_push_psnip(&jita_main_jmp, &psnip_ret);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_ret);
+	uarf_jita_push_psnip(&jita_main_jmp, &psnip_ret);
 
-	jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
-	jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
+	uarf_jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
+	uarf_jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
 
 	size_t data_i = 0;
 
@@ -764,11 +772,11 @@ TEST_SUITE()
 	// clang-format on
 
 	for (size_t i = 0; i < data_i; i++) {
-		RUN_TEST_CASE_ARG(basic, data + i);
+		UARF_TEST_RUN_CASE_ARG(basic, data + i);
 	}
 
-	pi_deinit();
-	rap_deinit();
+	uarf_pi_deinit();
+	uarf_rap_deinit();
 
 	return 0;
 }

@@ -15,7 +15,7 @@ static int major;
 static struct class *cls;
 static struct device *dev;
 
-static inline unsigned long _read_cr3(void) {
+static inline unsigned long _uarf_read_cr3(void) {
     unsigned long cr3;
 
     asm volatile("mov %%cr3, %0" : "=r"(cr3));
@@ -23,17 +23,17 @@ static inline unsigned long _read_cr3(void) {
     return cr3;
 }
 
-static inline void _write_cr3(unsigned long cr3) {
+static inline void _uarf_write_cr3(unsigned long cr3) {
     asm volatile("mov %0, %%cr3" ::"r"(cr3));
 }
 
-static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+static long uarf_pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_info("PI IOCTL received\n");
 
     switch (cmd) {
-    case IOCTL_RDMSR: {
+    case UARF_IOCTL_RDMSR: {
 
-        struct req_msr req;
+        struct UarfPiReqMsr req;
         if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
             pr_warn("Failed to copy data from user\n");
             return -EINVAL;
@@ -50,9 +50,9 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         break;
     }
-    case IOCTL_WRMSR: {
+    case UARF_IOCTL_WRMSR: {
 
-        struct req_msr req;
+        struct UarfPiReqMsr req;
         if (copy_from_user(&req, (struct msr_request __user *) arg, sizeof(req))) {
             pr_warn("Failed to copy data from user\n");
             return -EINVAL;
@@ -63,7 +63,7 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         break;
     }
-    case IOCTL_INVLPG: {
+    case UARF_IOCTL_INVLPG: {
 
         uint64_t addr;
         if (copy_from_user(&addr, (uint64_t __user *) arg, sizeof(uint64_t))) {
@@ -76,14 +76,14 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         break;
     }
-    case IOCTL_FLUSH_TLB: {
+    case UARF_IOCTL_FLUSH_TLB: {
         pr_debug("Type FLUSH_TLB\n");
-        _write_cr3(_read_cr3());
+        _uarf_write_cr3(_uarf_read_cr3());
         break;
     }
-    case IOCTL_CPUID: {
+    case UARF_IOCTL_CPUID: {
         pr_debug("Type CPUID\n");
-        struct req_cpuid req;
+        struct UarfPiReqCpuid req;
         if (copy_from_user(&req, (uint64_t __user *) arg, sizeof(req))) {
             pr_warn("Failed to copy data from user\n");
             return -EINVAL;
@@ -99,10 +99,10 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     }
     default: {
         pr_warn("Unsupported command encountered: %u\n", cmd);
-        pr_debug("RDMSR: %lu\n", IOCTL_RDMSR);
-        pr_debug("WRMSR: %lu\n", IOCTL_WRMSR);
-        pr_debug("INVLPG: %lu\n", IOCTL_INVLPG);
-        pr_debug("CPUID: %lu\n", IOCTL_CPUID);
+        pr_debug("RDMSR: %lu\n", UARF_IOCTL_RDMSR);
+        pr_debug("WRMSR: %lu\n", UARF_IOCTL_WRMSR);
+        pr_debug("INVLPG: %lu\n", UARF_IOCTL_INVLPG);
+        pr_debug("CPUID: %lu\n", UARF_IOCTL_CPUID);
         return -EINVAL;
     }
     }
@@ -111,7 +111,7 @@ static long pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 }
 
 static struct file_operations fops = {
-    .unlocked_ioctl = pi_ioctl,
+    .unlocked_ioctl = uarf_pi_ioctl,
 };
 
 // Gives read/write access to all users
@@ -127,7 +127,7 @@ static char *devnode(struct device *dev, umode_t *mode) {
     return NULL;
 }
 
-static int __init pi_init(void) {
+static int __init uarf_pi_init(void) {
     pr_debug("pi module initiated\n");
 
     major = register_chrdev(0, "pi", &fops);
@@ -163,7 +163,7 @@ static int __init pi_init(void) {
     return 0;
 }
 
-static void __exit pi_exit(void) {
+static void __exit uarf_pi_exit(void) {
     pr_debug("pi module exited\n");
 
     device_destroy(cls, MKDEV(major, 0));
@@ -173,7 +173,7 @@ static void __exit pi_exit(void) {
     pr_info("Device exited successfully\n");
 }
 
-module_init(pi_init);
-module_exit(pi_exit);
+module_init(uarf_pi_init);
+module_exit(uarf_pi_exit);
 
 MODULE_LICENSE("GPL");

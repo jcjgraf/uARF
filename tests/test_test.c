@@ -7,17 +7,18 @@
 #include "test.h"
 #include <stdio.h>
 
-TEST_CASE(hello_world) {
+UARF_TEST_CASE(hello_world) {
     printf("Hello, World\n");
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE_ARG(hello_arg, arg) {
-    TEST_ASSERT(_ul(arg) == 5);
-    TEST_PASS();
+UARF_TEST_CASE_ARG(hello_arg, arg) {
+    UARF_TEST_ASSERT(_ul(arg) == 5);
+    UARF_TEST_PASS();
 }
 
-TEST_SUITE() {
-    RUN_TEST_CASE(hello_world);
-    RUN_TEST_CASE_ARG(hello_arg, 5);
+UARF_TEST_SUITE() {
+    UARF_TEST_RUN_CASE(hello_world);
+    UARF_TEST_RUN_CASE_ARG(hello_arg, 5);
+    return 0;
 }

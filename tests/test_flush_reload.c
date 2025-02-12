@@ -6,7 +6,6 @@
  *
  */
 
-#include "compiler.h"
 #include "flush_reload.h"
 #include "log.h"
 #include "mem.h"
@@ -16,22 +15,22 @@
 #define ROUNDS 100
 
 bool is_clflush_supported(void) {
-    uint32_t eax = cpuid_eax(1);
+    uint32_t eax = uarf_cpuid_eax(1);
     return eax & (1 << 19);
 }
 
 // Check if the CPU has support for clflush instruction
-TEST_CASE(case_clflush) {
+UARF_TEST_CASE(case_clflush) {
     // TODO: should be non-zero
-    TEST_ASSERT(is_clflush_supported());
-    LOG_DEBUG("cl flush is supported\n");
+    UARF_TEST_ASSERT(is_clflush_supported());
+    UARF_LOG_DEBUG("cl flush is supported\n");
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
 // Checks what the cached and uncached access times are reasonable
-TEST_CASE(case_flush) {
-    int *loc = malloc_or_die(sizeof(int));
+UARF_TEST_CASE(case_flush) {
+    int *loc = uarf_malloc_or_die(sizeof(int));
 
     uint64_t t_c = 0;
     uint64_t t_n = 0;
@@ -40,82 +39,82 @@ TEST_CASE(case_flush) {
 
         *(volatile int *) loc = 0;
 
-        mfence();
+        uarf_mfence();
 
-        t_c += get_access_time(loc);
+        t_c += uarf_get_access_time(loc);
 
-        mfence();
+        uarf_mfence();
 
-        clflush(loc);
+        uarf_clflush(loc);
 
-        mfence();
+        uarf_mfence();
 
-        t_n += get_access_time(loc);
+        t_n += uarf_get_access_time(loc);
     }
 
     t_c /= ROUNDS;
     t_n /= ROUNDS;
 
-    LOG_DEBUG("Cached:   %lu\n", t_c);
-    LOG_DEBUG("Uncached: %lu\n", t_n);
+    UARF_LOG_DEBUG("Cached:   %lu\n", t_c);
+    UARF_LOG_DEBUG("Uncached: %lu\n", t_n);
 
-    TEST_ASSERT(t_c < t_n);
-    TEST_ASSERT(t_c < FR_THRESH);
+    UARF_TEST_ASSERT(t_c < t_n);
+    UARF_TEST_ASSERT(t_c < FR_THRESH);
 
-    free_or_die(loc);
+    uarf_free_or_die(loc);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
 // Runs the flush and reload side channel in kernel
-TEST_CASE(flush_reload) {
+UARF_TEST_CASE(flush_reload) {
 
-    struct FrConfig conf = fr_init(8, 1, NULL);
-    fr_reset(&conf);
+    UarfFrConfig conf = uarf_fr_init(8, 1, NULL);
+    uarf_fr_reset(&conf);
 
 #define SECRET    1
 #define NUM_RUNDS 10
 
     for (size_t i = 0; i < NUM_RUNDS; i++) {
-        fr_flush(&conf);
+        uarf_fr_flush(&conf);
         *(volatile uint8_t *) (conf.buf.addr + SECRET * FR_STRIDE);
         *(volatile uint8_t *) (conf.buf.addr + (SECRET + 2) * FR_STRIDE);
-        fr_reload(&conf);
+        uarf_fr_reload(&conf);
     }
 
-    LOG_DEBUG("FR Buffer\n");
-    fr_print(&conf);
+    UARF_LOG_DEBUG("FR Buffer\n");
+    uarf_fr_print(&conf);
 
-    fr_deinit(&conf);
+    uarf_fr_deinit(&conf);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
 // Do the flush and reload buffer entries have the correct values?
-TEST_CASE(buffer_values) {
+UARF_TEST_CASE(buffer_values) {
 
-    struct FrConfig conf = fr_init(8, 1, NULL);
-    fr_reset(&conf);
+    UarfFrConfig conf = uarf_fr_init(8, 1, NULL);
+    uarf_fr_reset(&conf);
 
     for (size_t i = 0; i < conf.num_slots; i++) {
-        TEST_ASSERT(*(uint64_t *) (conf.buf.p + i * FR_STRIDE) == i + 1);
+        UARF_TEST_ASSERT(*(uint64_t *) (conf.buf.p + i * FR_STRIDE) == i + 1);
     }
 
-    fr_deinit(&conf);
+    uarf_fr_deinit(&conf);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_CASE(flush_reload_bin) {
+UARF_TEST_CASE(flush_reload_bin) {
 
-    struct FrConfig conf = fr_init(32, 6, (size_t[]){0, 1, 2, 3, 5, 10});
-    fr_reset(&conf);
+    UarfFrConfig conf = uarf_fr_init(32, 6, (size_t[]) {0, 1, 2, 3, 5, 10});
+    uarf_fr_reset(&conf);
 
 #define SECRET    1
 #define NUM_RUNDS 10
 
     for (size_t i = 0; i < NUM_RUNDS; i++) {
-        fr_flush(&conf);
+        uarf_fr_flush(&conf);
         *(volatile uint8_t *) (conf.buf.addr + SECRET * FR_STRIDE);
         if (i % 2 == 0) {
             *(volatile uint8_t *) (conf.buf.addr + (SECRET + 2) * FR_STRIDE);
@@ -123,23 +122,23 @@ TEST_CASE(flush_reload_bin) {
         else {
             *(volatile uint8_t *) (conf.buf.addr + 31 * FR_STRIDE);
         }
-        fr_reload_binned(&conf, i);
+        uarf_fr_reload_binned(&conf, i);
     }
 
-    LOG_DEBUG("FR Buffer\n");
-    fr_print(&conf);
+    UARF_LOG_DEBUG("FR Buffer\n");
+    uarf_fr_print(&conf);
 
-    fr_deinit(&conf);
+    uarf_fr_deinit(&conf);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
-TEST_SUITE() {
-    RUN_TEST_CASE(case_clflush);
-    RUN_TEST_CASE(case_flush);
-    RUN_TEST_CASE(flush_reload);
-    RUN_TEST_CASE(buffer_values);
-    RUN_TEST_CASE(flush_reload_bin);
+UARF_TEST_SUITE() {
+    UARF_TEST_RUN_CASE(case_clflush);
+    UARF_TEST_RUN_CASE(case_flush);
+    UARF_TEST_RUN_CASE(flush_reload);
+    UARF_TEST_RUN_CASE(buffer_values);
+    UARF_TEST_RUN_CASE(flush_reload_bin);
 
-    TEST_PASS();
+    return 0;
 }

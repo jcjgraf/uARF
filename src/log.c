@@ -1,12 +1,11 @@
 #include "log.h"
 
 // Any log with a level higher than this is shown, regardless of the tag
-log_level_t log_system_base_level = LOG_LEVEL_INFO;
+UarfLogLevel uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
 
 // Show any log associated with this tag and a level higher than this
-// log_level_t log_system_level = LOG_LEVEL_TRACE;
-log_level_t log_system_level = LOG_LEVEL_TRACE;
-// log_level_t log_system_level = LOG_LEVEL_ERROR;
+UarfLogLevel uarf_log_system_level = UARF_LOG_LEVEL_TRACE;
+// UarfLogLevel uarf_log_system_level = UARF_LOG_LEVEL_ERROR;
 
-log_tag_t log_system_tag = LOG_TAG_TEST;
-// log_tag_t log_system_tag = LOG_TAG_ALL;
+UarfLogTag uarf_log_system_tag = UARF_LOG_TAG_TEST;
+// UarfLogTag uarf_log_system_tag = UARF_LOG_TAG_ALL;

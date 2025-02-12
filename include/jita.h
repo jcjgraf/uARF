@@ -18,30 +18,32 @@
 /**
  * A snippet is either physical or virtual
  */
-typedef struct {
-    enum snip_t { PSNIP, VSNIP } type;
+typedef struct UarfSnip UarfSnip;
+struct UarfSnip {
+    enum Snip { PSNIP, VSNIP } type;
     union {
-        psnip_t *psnip;
-        vsnip_t vsnip;
+        UarfPsnip *psnip;
+        UarfVsnip vsnip;
     };
-} snip_t;
+};
 
 #define JITA_CTXT_MAX_SNIPS 32
 /**
  * Collection of snippets, used to build a stub.
  */
-typedef struct {
-    snip_t snips[JITA_CTXT_MAX_SNIPS];
+typedef struct UarfJitaCtxt UarfJitaCtxt;
+struct UarfJitaCtxt {
+    UarfSnip snips[JITA_CTXT_MAX_SNIPS];
     size_t n_snips;
-} jita_ctxt_t;
+};
 
 /**
  * Get an initialized jita_ctxt_t.
  *
  * Only required in local function, as globals are initialized to zero.
  */
-static __always_inline jita_ctxt_t jita_init(void) {
-    return (jita_ctxt_t){.n_snips = 0};
+static __always_inline UarfJitaCtxt uarf_jita_init(void) {
+    return (UarfJitaCtxt) {.n_snips = 0};
 }
 
 /**
@@ -53,7 +55,7 @@ static __always_inline jita_ctxt_t jita_init(void) {
  *
  * @NOTE: The stub must not have been alocated previously
  */
-void jita_allocate(jita_ctxt_t *ctxt, stub_t *stub, uint64_t addr);
+void uarf_jita_allocate(UarfJitaCtxt *ctxt, UarfStub *stub, uint64_t addr);
 
 /**
  * Deallocate the stub of a context.
@@ -61,55 +63,56 @@ void jita_allocate(jita_ctxt_t *ctxt, stub_t *stub, uint64_t addr);
  * @param ctxt not used
  * @param stub stub with allocation
  */
-void jita_deallocate(jita_ctxt_t *ctxt, stub_t *stub);
+void uarf_jita_deallocate(UarfJitaCtxt *ctxt, UarfStub *stub);
 
 /**
  * Add a virtual snippet to a context.
  */
-void jita_push_vsnip(jita_ctxt_t *ctxt, vsnip_t snip);
+void uarf_jita_push_vsnip(UarfJitaCtxt *ctxt, UarfVsnip snip);
 
 /**
  * Add a physical snippet to a context.
  */
-void jita_push_psnip(jita_ctxt_t *ctxt, psnip_t *snip);
+void uarf_jita_push_psnip(UarfJitaCtxt *ctxt, UarfPsnip *snip);
 
 /**
  * Get the last added snip
  */
-void jita_pop(jita_ctxt_t *ctxt, snip_t *snip);
+void uarf_jita_pop(UarfJitaCtxt *ctxt, UarfSnip *snip);
 
 /**
  * Clone a jita
  */
-void jita_clone(jita_ctxt_t *from, jita_ctxt_t *to);
+void uarf_jita_clone(UarfJitaCtxt *from, UarfJitaCtxt *to);
 
 /**
  * Create a virtual snippet that ensures that the next added snippet is aligned.
  */
-void jita_push_vsnip_align(jita_ctxt_t *ctxt, uint32_t align);
+void uarf_jita_push_vsnip_align(UarfJitaCtxt *ctxt, uint32_t align);
 
 /**
  * Create a virtual snippet that asserts that the end of the stub is aligned.
  */
-void jita_push_vsnip_assert_align(jita_ctxt_t *ctxt, uint32_t alignment);
+void uarf_jita_push_vsnip_assert_align(UarfJitaCtxt *ctxt, uint32_t alignment);
 
 /**
  * Create a virtual snippet that dumps the stub at allocation time.
  */
-void jita_push_vsnip_dump_stub(jita_ctxt_t *ctxt, stub_t *dump_to);
+void uarf_jita_push_vsnip_dump_stub(UarfJitaCtxt *ctxt, UarfStub *dump_to);
 
 /**
  * Create a virtual snippet that does a direct jump to `target_addr`.
  */
-void jita_push_vsnip_jmp_near_abs(jita_ctxt_t *ctxt, uint64_t target_addr);
+void uarf_jita_push_vsnip_jmp_near_abs(UarfJitaCtxt *ctxt, uint64_t target_addr);
 
 /**
  * Create a virtual snippet that does a direct jump with `offset`. `inclusive` controls
  * whether the jmp instruction size is part of `offset` or not.
  */
-void jita_push_vsnip_jmp_near_rel(jita_ctxt_t *ctxt, uint32_t offset, bool inclusive);
+void uarf_jita_push_vsnip_jmp_near_rel(UarfJitaCtxt *ctxt, uint32_t offset,
+                                       bool inclusive);
 
 /**
  * Create a virtual snippet that adds `num` nops
  */
-void jita_push_vsnip_fill_nop(jita_ctxt_t *ctxt, uint32_t num);
+void uarf_jita_push_vsnip_fill_nop(UarfJitaCtxt *ctxt, uint32_t num);

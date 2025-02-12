@@ -2,9 +2,10 @@
 
 #include <linux/types.h>
 
-#define IOCTL_RAP _IOWR('m', 1, struct rap_request)
+#define UARF_IOCTL_RAP _IOWR('m', 1, UarfRapRequest)
 
-struct rap_request {
+typedef struct UarfRapRequest UarfRapRequest;
+struct UarfRapRequest {
     union {
         void (*func)(void *);
         void *ptr;

@@ -9,7 +9,7 @@
  * [Retired Instructions] (Core::X86::Pmc::Core::ExRetInstr)
  * The number of instructions retired.
  */
-#define AMD_EX_RET_INSTR PMU_CONFIG(.event = 0xC0, .umask = 0x00)
+#define UARF_AMD_EX_RET_INSTR UARF_PMU_CONFIG(.event = 0xC0, .umask = 0x00)
 
 /**
  * [Retired Near Returns Mispredicted]
@@ -18,7 +18,7 @@
  * address predictor. Each such mispredict incurs the same penalty as a mispredicted
  * conditional branch instruction.
  */
-#define AMD_EX_RET_NEAR_RET_MISPRED PMU_CONFIG(.event = 0xC9, .umask = 0x00)
+#define UARF_AMD_EX_RET_NEAR_RET_MISPRED UARF_PMU_CONFIG(.event = 0xC9, .umask = 0x00)
 
 /**
  * [Retired Indirect Branch Instructions Mispredicted]
@@ -27,10 +27,10 @@
  * mispredict incurs the same penalty as a mispredicted conditional branch instruction.
  * Note that only EX mispredicts are counted.
  */
-#define AMD_EX_RET_BRN_IND_MISP PMU_CONFIG(.event = 0xCA, .umask = 0x00)
+#define UARF_AMD_EX_RET_BRN_IND_MISP UARF_PMU_CONFIG(.event = 0xCA, .umask = 0x00)
 
 /*
  * [Retired Indirect Branch Instructions] (Core::X86::Pmc::Core::ExRetIndBrchInstr)
  * The number of indirect branches retired.
  */
-#define AMD_EX_RET_IND_BRCH_INSTR PMU_CONFIG(.event = 0xCC, .umask = 0x00)
+#define UARF_AMD_EX_RET_IND_BRCH_INSTR UARF_PMU_CONFIG(.event = 0xCC, .umask = 0x00)

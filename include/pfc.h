@@ -7,12 +7,13 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_PFC
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_PFC
 #endif
 
-struct pfc {
+typedef struct UarfPfc UarfPfc;
+struct UarfPfc {
     uint64_t config;
     uint64_t config1;
     uint64_t config2;
@@ -25,7 +26,8 @@ struct pfc {
 };
 
 // From Linux Kernel events/perf_event.h
-union pmu_config {
+typedef union UarfPmuConfig UarfPmuConfig;
+union UarfPmuConfig {
     struct {
         uint64_t event : 8, umask : 8, usr : 1, os : 1, edge : 1, pc : 1, interrupt : 1,
             __reserved1 : 1, en : 1, inv : 1, cmask : 8, event2 : 4, __reserved2 : 4,
@@ -37,8 +39,9 @@ union pmu_config {
 /*
  * Performance Measurement
  */
-struct pm {
-    struct pfc pfc;
+typedef struct UarfPm UarfPm;
+struct UarfPm {
+    struct UarfPfc pfc;
     // The final count, that gets incremented by pfc_stop
     uint64_t count;
     // Temporary variable used to store that current start value
@@ -50,91 +53,92 @@ struct pm {
  *
  * To track multiple PFCs at the same time
  */
-struct pmg {
+typedef struct UarfPmg UarfPmg;
+struct UarfPmg {
     // Number PMs that are managed
     size_t num;
-    struct pm pms[];
+    struct UarfPm pms[];
 };
 
 // From Linux Kernel events/perf_event.h
-#define PMU_CONFIG(args...) ((union pmu_config) {.bits = {args}}).value
+#define UARF_PMU_CONFIG(args...) ((UarfPmuConfig) {.bits = {args}}).value
 
-__always_inline int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
-                                    int group_fd, unsigned long flags) {
+__always_inline int uarf_perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu,
+                                         int group_fd, unsigned long flags) {
     return syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
 /*
  * Initialize a PFC
  */
-int pfc_init(struct pfc *pfc);
+int uarf_pfc_init(UarfPfc *pfc);
 
 /*
  * De-initialize a PFC
  */
-void pfc_deinit(struct pfc *pfc);
+void uarf_pfc_deinit(UarfPfc *pfc);
 
 /*
  * Get the value of the PFC
  */
-uint64_t pfc_read(struct pfc *pfc);
+uint64_t uarf_pfc_read(UarfPfc *pfc);
 
 /*
  * Initialize a measurement for `config`.
  */
-static __always_inline int pm_init(struct pm *pm, uint64_t config) {
-    LOG_TRACE("(%p, %lu)\n", pm, config);
+static __always_inline int uarf_pm_init(UarfPm *pm, uint64_t config) {
+    UARF_LOG_TRACE("(%p, %lu)\n", pm, config);
 
-    memset(pm, 0, sizeof(struct pm));
+    memset(pm, 0, sizeof(UarfPm));
     pm->pfc.config = config;
-    return pfc_init(&pm->pfc);
+    return uarf_pfc_init(&pm->pfc);
 }
 
 /*
  * De-initialize an initialize measurement
  */
-static __always_inline void pm_deinit(struct pm *pm) {
-    LOG_TRACE("(%p)\n", pm);
-    pfc_deinit(&pm->pfc);
+static __always_inline void uarf_pm_deinit(UarfPm *pm) {
+    UARF_LOG_TRACE("(%p)\n", pm);
+    uarf_pfc_deinit(&pm->pfc);
 }
 
 /*
  * Start a Measurement
  */
-static __always_inline void pm_start(struct pm *pm) {
-    LOG_TRACE("(%p)\n", pm);
-    pm->tmp = pfc_read(&pm->pfc);
+static __always_inline void uarf_pm_start(UarfPm *pm) {
+    UARF_LOG_TRACE("(%p)\n", pm);
+    pm->tmp = uarf_pfc_read(&pm->pfc);
 }
 
 /*
  * Stop a measurement
  */
-static __always_inline void pm_stop(struct pm *pm) {
-    LOG_TRACE("(%p)\n", pm);
-    pm->count += pfc_read(&pm->pfc) - pm->tmp;
+static __always_inline void uarf_pm_stop(UarfPm *pm) {
+    UARF_LOG_TRACE("(%p)\n", pm);
+    pm->count += uarf_pfc_read(&pm->pfc) - pm->tmp;
 }
 
 /*
  * Get the value of the measurement
  */
-static __always_inline uint64_t pm_get(struct pm *pm) {
-    LOG_TRACE("(%p)\n", pm);
+static __always_inline uint64_t uarf_pm_get(UarfPm *pm) {
+    UARF_LOG_TRACE("(%p)\n", pm);
     return pm->count;
 }
 
 /*
  * Reset the measurement
  */
-static __always_inline void pm_reset(struct pm *pm) {
-    LOG_TRACE("(%p)\n", pm);
+static __always_inline void uarf_pm_reset(UarfPm *pm) {
+    UARF_LOG_TRACE("(%p)\n", pm);
     pm->count = 0;
 }
 
 /*
  * Convert the combined raw value returned by `rdpmc` to the actual counter value.
  */
-static __always_inline uint64_t pm_transform_raw2(struct pfc *pfc, uint64_t raw) {
-    LOG_TRACE("(%p, %lu)\n", pfc, raw);
+static __always_inline uint64_t uarf_pm_transform_raw2(UarfPfc *pfc, uint64_t raw) {
+    UARF_LOG_TRACE("(%p, %lu)\n", pfc, raw);
 
     // Sign-extend
     // TODO: required?
@@ -149,9 +153,9 @@ static __always_inline uint64_t pm_transform_raw2(struct pfc *pfc, uint64_t raw)
 /*
  * Convert the separate values returned by `rdpmc` to the actual counter value.
  */
-static __always_inline uint64_t pm_transform_raw1(struct pfc *pfc, uint32_t lo,
-                                                  uint32_t hi) {
-    LOG_TRACE("(%p, %u, %u)\n", pfc, lo, hi);
+static __always_inline uint64_t uarf_pm_transform_raw1(UarfPfc *pfc, uint32_t lo,
+                                                       uint32_t hi) {
+    UARF_LOG_TRACE("(%p, %u, %u)\n", pfc, lo, hi);
 
-    return pm_transform_raw2(pfc, ((uint64_t) hi << 32) | lo);
+    return uarf_pm_transform_raw2(pfc, ((uint64_t) hi << 32) | lo);
 }

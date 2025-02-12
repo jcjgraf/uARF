@@ -20,58 +20,58 @@
 
 #include "flush_reload.h"
 #include "jita.h"
+#include "kmod/pi.h"
+#include "lib.h"
 #include "log.h"
 #include "spec_lib.h"
 #include "test.h"
-#include "kmod/pi.h"
-#include "lib.h"
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG LOG_TAG_TEST
+#ifdef UARF_LOG_TAG
+#undef UARF_LOG_TAG
+#define UARF_LOG_TAG UARF_LOG_TAG_TEST
 #endif
 
-psnip_declare(history, psnip_history);
-psnip_declare(src_call_ind, psnip_src_call_ind);
-psnip_declare(src_jmp_ind, psnip_src_jmp_ind);
-psnip_declare(dst_gadget, psnip_dst_gadget);
-psnip_declare(dst_dummy, psnip_dst_dummy);
+uarf_psnip_declare(history, psnip_history);
+uarf_psnip_declare(src_call_ind, psnip_src_call_ind);
+uarf_psnip_declare(src_jmp_ind, psnip_src_jmp_ind);
+uarf_psnip_declare(dst_gadget, psnip_dst_gadget);
+uarf_psnip_declare(dst_dummy, psnip_dst_dummy);
 
 struct TestCaseData {
     uint32_t seed;
     uint32_t num_cands;
     uint32_t num_rounds;
     uint32_t num_train_rounds;
-    jita_ctxt_t *jita_main;
-    jita_ctxt_t *jita_gadget;
-    jita_ctxt_t *jita_dummy;
+    UarfJitaCtxt *jita_main;
+    UarfJitaCtxt *jita_gadget;
+    UarfJitaCtxt *jita_dummy;
     bool match_history;
 };
 
-TEST_CASE_ARG(basic, arg) {
+UARF_TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
 
     // struct FrConfig fr = fr_init(8, 6, (size_t[]){0, 1, 2, 3, 5, 10});
-    struct FrConfig fr = fr_init(8, 1, NULL);
+    UarfFrConfig fr = uarf_fr_init(8, 1, NULL);
 
-    stub_t stub_main = stub_init();
-    stub_t stub_gadget = stub_init();
-    stub_t stub_dummy = stub_init();
+    UarfStub stub_main = uarf_stub_init();
+    UarfStub stub_gadget = uarf_stub_init();
+    UarfStub stub_dummy = uarf_stub_init();
 
-    IBPB();
+    uarf_ibpb();
 
-    fr_reset(&fr);
+    uarf_fr_reset(&fr);
 
     for (size_t c = 0; c < data->num_cands; c++) {
-        jita_allocate(data->jita_main, &stub_main, rand47());
-        jita_allocate(data->jita_gadget, &stub_gadget, rand47());
-        jita_allocate(data->jita_dummy, &stub_dummy, rand47());
+        uarf_jita_allocate(data->jita_main, &stub_main, uarf_rand47());
+        uarf_jita_allocate(data->jita_gadget, &stub_gadget, uarf_rand47());
+        uarf_jita_allocate(data->jita_dummy, &stub_dummy, uarf_rand47());
 
-        struct history h1 = get_randomized_history();
-        struct history h2 = data->match_history ? h1 : get_randomized_history();
+        UarfHistory h1 = uarf_get_randomized_history();
+        UarfHistory h2 = data->match_history ? h1 : uarf_get_randomized_history();
 
-        struct SpecData train_data = {
+        UarfSpecData train_data = {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_gadget.addr),
             .fr_buf_p = fr.buf2.addr,
@@ -79,7 +79,7 @@ TEST_CASE_ARG(basic, arg) {
             .hist = h1,
         };
 
-        struct SpecData signal_data = {
+        UarfSpecData signal_data = {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_dummy.addr),
             .fr_buf_p = fr.buf.addr,
@@ -99,10 +99,10 @@ TEST_CASE_ARG(basic, arg) {
                              : "rax", "rdx", "rdi", "rsi", "r8", "memory");
             }
 
-            fr_flush(&fr);
-            clflush_spec_dst(&signal_data);
-            invlpg_spec_dst(&signal_data);
-            prefetcht0(&train_data);
+            uarf_fr_flush(&fr);
+            uarf_clflush_spec_dst(&signal_data);
+            uarf_invlpg_spec_dst(&signal_data);
+            uarf_prefetcht0(&train_data);
 
             // TODO: disable interrupts and preemption
             asm("signal:\n\t");
@@ -113,19 +113,19 @@ TEST_CASE_ARG(basic, arg) {
                          "c"(&signal_data)
                          : "rax", "rdx", "rdi", "rsi", "r8", "memory");
 
-            fr_reload_binned(&fr, r);
+            uarf_fr_reload_binned(&fr, r);
         }
-        jita_deallocate(data->jita_main, &stub_main);
-        jita_deallocate(data->jita_gadget, &stub_gadget);
-        jita_deallocate(data->jita_dummy, &stub_dummy);
+        uarf_jita_deallocate(data->jita_main, &stub_main);
+        uarf_jita_deallocate(data->jita_gadget, &stub_gadget);
+        uarf_jita_deallocate(data->jita_dummy, &stub_dummy);
     }
 
-    LOG_INFO("Fr Buffer\n");
-    fr_print(&fr);
+    UARF_LOG_INFO("Fr Buffer\n");
+    uarf_fr_print(&fr);
 
-    fr_deinit(&fr);
+    uarf_fr_deinit(&fr);
 
-    TEST_PASS();
+    UARF_TEST_PASS();
 }
 
 static struct TestCaseData data1;
@@ -133,31 +133,31 @@ static struct TestCaseData data2;
 static struct TestCaseData data3;
 static struct TestCaseData data4;
 
-TEST_SUITE() {
-    uint32_t seed = get_seed();
-    LOG_INFO("Using seed: %u\n", seed);
-    pi_init();
+UARF_TEST_SUITE() {
+    uint32_t seed = uarf_get_seed();
+    UARF_LOG_INFO("Using seed: %u\n", seed);
+    uarf_pi_init();
 
-    jita_ctxt_t jita_main_call = jita_init();
-    jita_ctxt_t jita_main_jmp = jita_init();
-    jita_ctxt_t jita_gadget = jita_init();
-    jita_ctxt_t jita_dummy = jita_init();
+    UarfJitaCtxt jita_main_call = uarf_jita_init();
+    UarfJitaCtxt jita_main_jmp = uarf_jita_init();
+    UarfJitaCtxt jita_gadget = uarf_jita_init();
+    UarfJitaCtxt jita_dummy = uarf_jita_init();
 
-    jita_push_psnip(&jita_main_call, &psnip_history);
-    jita_push_psnip(&jita_main_call, &psnip_history);
-    jita_push_psnip(&jita_main_call, &psnip_history);
-    jita_push_psnip(&jita_main_call, &psnip_history);
-    jita_push_psnip(&jita_main_call, &psnip_history);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_history);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_history);
 
-    jita_clone(&jita_main_call, &jita_main_jmp);
+    uarf_jita_clone(&jita_main_call, &jita_main_jmp);
 
-    jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
-    jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+    uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
+    uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
 
-    jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
-    jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
+    uarf_jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
+    uarf_jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
 
-    data1 = (struct TestCaseData){
+    data1 = (struct TestCaseData) {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -168,7 +168,7 @@ TEST_SUITE() {
         .match_history = true,
     };
 
-    data2 = (struct TestCaseData){
+    data2 = (struct TestCaseData) {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -179,7 +179,7 @@ TEST_SUITE() {
         .match_history = false,
     };
 
-    data3 = (struct TestCaseData){
+    data3 = (struct TestCaseData) {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -190,7 +190,7 @@ TEST_SUITE() {
         .match_history = true,
     };
 
-    data4 = (struct TestCaseData){
+    data4 = (struct TestCaseData) {
         .seed = seed++,
         .num_cands = 100,
         .num_rounds = 10,
@@ -201,12 +201,12 @@ TEST_SUITE() {
         .match_history = false,
     };
 
-    RUN_TEST_CASE_ARG(basic, &data1);
-    RUN_TEST_CASE_ARG(basic, &data2);
-    RUN_TEST_CASE_ARG(basic, &data3);
-    RUN_TEST_CASE_ARG(basic, &data4);
+    UARF_TEST_RUN_CASE_ARG(basic, &data1);
+    UARF_TEST_RUN_CASE_ARG(basic, &data2);
+    UARF_TEST_RUN_CASE_ARG(basic, &data3);
+    UARF_TEST_RUN_CASE_ARG(basic, &data4);
 
-    pi_deinit();
+    uarf_pi_deinit();
 
     return 0;
 }

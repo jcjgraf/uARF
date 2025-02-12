@@ -9,6 +9,9 @@
 #include "flush_reload.h"
 #include "spec_lib.h"
 
+# Prevent linker warning: "missing .note.GNU-stack section implies executable stack"
+.section .note.GNU-stack,"",@progbits
+
 /*
  * Victim branch source using an indirect call
  * Regs:
@@ -17,11 +20,11 @@
  * - Return address
  * Clobbers: RDI, RSI, R8
  */
-SNIP_START src_call_ind
-    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+UARF_SNIP_START src_call_ind
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
@@ -30,18 +33,18 @@ SNIP_START src_call_ind
     .fill 64, 1, 0x90
     ret
     int3
-SNIP_END src_call_ind
+UARF_SNIP_END src_call_ind
 
-SNIP_START src_call_ind_no_ret
-    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+UARF_SNIP_START src_call_ind_no_ret
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
     call *(%r8)                                         // SIZE: 3
-SNIP_END src_call_ind_no_ret
+UARF_SNIP_END src_call_ind_no_ret
 
 /*
  * Victim branch source using an indirect jmp
@@ -51,30 +54,30 @@ SNIP_END src_call_ind_no_ret
  * - Return address
  * Clobbers: RDI, RSI, R8
  */
-SNIP_START src_jmp_ind
-    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+UARF_SNIP_START src_jmp_ind
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
     jmp *(%r8) // Calls return                          // SIZE: 3
     int3
-SNIP_END src_jmp_ind
+UARF_SNIP_END src_jmp_ind
 
-SNIP_START src_jmp_ind_no_ret
-    movq DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq DATA__secret(%rcx), %rsi                       // SIZE: 4
+UARF_SNIP_START src_jmp_ind_no_ret
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
     lea 25(%rip), %rdx                      // SIZE: 7 Address of end of block (=> return address)
     pushq %rdx                              // SIZE: 1
     movq $0, %rdx                                       // SIZE: 7
-    movq DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
     jmp *(%r8) // Calls return                          // SIZE: 3
-SNIP_END src_jmp_ind_no_ret
+UARF_SNIP_END src_jmp_ind_no_ret
 
 /*
  * Gadget Code, leaking the secret when executed speculatively
@@ -85,13 +88,13 @@ SNIP_END src_jmp_ind_no_ret
  * - Return Address
  * Clobbers: RDI, RSI, RAX
  */
-SNIP_START dst_gadget
+UARF_SNIP_START dst_gadget
     shlq $FR_STRIDE_BITS, %rsi
     movq (%rdi, %rsi), %rax
     lfence
     ret
     int3
-SNIP_END dst_gadget
+UARF_SNIP_END dst_gadget
 
 /*
  * Gadget Code, determining the size of the speculation windows in terms of memory fetches that can be done
@@ -103,7 +106,7 @@ SNIP_END dst_gadget
  * - Return Address
  * Clobbers: RDI, RSI, RAX
  */
-SNIP_START dst_gadget_time
+UARF_SNIP_START dst_gadget_time
     // Access FR_BUF[0]
     movq (%rdi), %rax
     // Access FR_BUF[%rax]
@@ -130,7 +133,7 @@ SNIP_START dst_gadget_time
     lfence
     ret
     int3
-SNIP_END dst_gadget_time
+UARF_SNIP_END dst_gadget_time
 
 /*
  * Gadget Code, leaking the tainted secret when executed speculatively
@@ -143,14 +146,14 @@ SNIP_END dst_gadget_time
  * Clobbers: RDI, RSI, RAX
  */
 .macro dst_gadget_i i
-    SNIP_START dst_gadget_\i
+    UARF_SNIP_START dst_gadget_\i
         addq $\i, %rsi
         shlq $FR_STRIDE_BITS, %rsi
         movq (%rdi, %rsi), %rax
         lfence
         ret
         int3
-    SNIP_END dst_gadget_\i
+    UARF_SNIP_END dst_gadget_\i
 .endm
 
 dst_gadget_i 0
@@ -189,14 +192,14 @@ dst_gadget_i 31
 # Dummy Code
 # Stack:
 # - Return Address
-SNIP_START dst_dummy
+UARF_SNIP_START dst_dummy
     lfence
     ret
     int3
-SNIP_END dst_dummy
+UARF_SNIP_END dst_dummy
 
-SNIP_START history
-    movq DATA__hist(%rcx), %rax    // SIZE: 4
+UARF_SNIP_START history
+    movq UARF_DATA__hist(%rcx), %rax    // SIZE: 4
     test $0x00000001, %eax          // SIZE: 5
     jz 1f                           // Size: 2
     .skip 0x8, 0x90
@@ -326,7 +329,7 @@ SNIP_START history
     .skip 0x8, 0x90
     1:
 // Mid
-    movq (DATA__hist + DATA__hist_size)(%rcx), %rax
+    movq (UARF_DATA__hist + UARF_DATA__hist_size)(%rcx), %rax
     test $0x00000001, %eax
     jz 1f
     .skip 0x8, 0x90
@@ -455,7 +458,7 @@ SNIP_START history
     jz 1f
     .skip 0x8, 0x90
     1:
-SNIP_END history
+UARF_SNIP_END history
 
 /*
  * Get the index into a custom stack from the data memory.
@@ -499,32 +502,32 @@ SNIP_END history
 
 // User Stack Macros
 .macro USTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_PUSH \data_base_reg, USTACK_STACK_OFFSET, USTACK_INDEX_OFFSET, USTACK_SCRATCH_OFFSET, \index_reg, \value
+    CSTACK_PUSH \data_base_reg, UARF_USTACK_STACK_OFFSET, UARF_USTACK_INDEX_OFFSET, UARF_USTACK_SCRATCH_OFFSET, \index_reg, \value
 .endm
 
 .macro USTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_POP \data_base_reg, USTACK_STACK_OFFSET, USTACK_INDEX_OFFSET, USTACK_SCRATCH_OFFSET, \index_reg, \reg
+    CSTACK_POP \data_base_reg, UARF_USTACK_STACK_OFFSET, UARF_USTACK_INDEX_OFFSET, UARF_USTACK_SCRATCH_OFFSET, \index_reg, \reg
 .endm
 
 // Input Stack Macros
 .macro ISTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_PUSH \data_base_reg, ISTACK_STACK_OFFSET, ISTACK_INDEX_OFFSET, ISTACK_SCRATCH_OFFSET, \index_reg, \value
+    CSTACK_PUSH \data_base_reg, UARF_ISTACK_STACK_OFFSET, UARF_ISTACK_INDEX_OFFSET, UARF_ISTACK_SCRATCH_OFFSET, \index_reg, \value
 .endm
 
 .macro ISTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_POP \data_base_reg, ISTACK_STACK_OFFSET, ISTACK_INDEX_OFFSET, ISTACK_SCRATCH_OFFSET, \index_reg, \reg
+    CSTACK_POP \data_base_reg, UARF_ISTACK_STACK_OFFSET, UARF_ISTACK_INDEX_OFFSET, UARF_ISTACK_SCRATCH_OFFSET, \index_reg, \reg
 .endm
 
 // Output Stack Macros
 .macro OSTACK_PUSH value, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_PUSH \data_base_reg, OSTACK_STACK_OFFSET, OSTACK_INDEX_OFFSET, OSTACK_SCRATCH_OFFSET, \index_reg, \value
+    CSTACK_PUSH \data_base_reg, UARF_OSTACK_STACK_OFFSET, UARF_OSTACK_INDEX_OFFSET, UARF_OSTACK_SCRATCH_OFFSET, \index_reg, \value
 .endm
 
 .macro OSTACK_POP reg, data_base_reg=%rcx, index_reg=%r8
-    CSTACK_POP \data_base_reg, OSTACK_STACK_OFFSET, OSTACK_INDEX_OFFSET, OSTACK_SCRATCH_OFFSET, \index_reg, \reg
+    CSTACK_POP \data_base_reg, UARF_OSTACK_STACK_OFFSET, UARF_OSTACK_INDEX_OFFSET, UARF_OSTACK_SCRATCH_OFFSET, \index_reg, \reg
 .endm
 
-SNIP_START rdpmc
+UARF_SNIP_START rdpmc
     // Switch data base pointer to rsi as we need rcx
     USTACK_PUSH %rsi
     movq %rcx, %rsi
@@ -554,4 +557,4 @@ SNIP_START rdpmc
     // Restore data base pointer from rsi to rcx
     movq %rsi, %rcx
     USTACK_POP %rsi
-SNIP_END rdpmc
+UARF_SNIP_END rdpmc
