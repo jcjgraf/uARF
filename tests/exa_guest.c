@@ -12,152 +12,309 @@
  * - Edit `kvm/Makefile`
  *    - Add `TEST_GEN_PROGS_x86_64 += x86_64/rev_eng/exa_guest`
  *    - Add `LDLIBS += -L./lib/uarf -luarf`
- * - Run `make && ./x86_64/rev_eng/exa_guest`
+ * - Run `make && ./x86_64/rev_eng/ex_guest`
  */
 
+#include "processor.h"
 #include "uarf/jita.h"
 #include "uarf/kmod/pi.h"
 #include "uarf/kmod/rap.h"
+
+// Crazy import hack to prevent name collisions :D
+#define cpuid lib_cpuid
+#define rdmsr lib_rdmsr
+#define wrmsr lib_wrmsr
+#define rdtsc lib_rdtsc
+#define rdtscp lib_rdtscp
 #include "uarf/lib.h"
+#undef cpuid
+#undef rdmsr
+#undef wrmsr
+#undef rdtsc
+#undef rdtscp
+
 #include "uarf/psnip.h"
 
 #include <err.h>
 #include <syscall.h>
 #include <unistd.h>
 
+#include <asm/processor-flags.h>
 #include <ucall_common.h>
+#include <kvm_util_base.h>
+
+#include "processor.h"
 
 #define NUM_ADDITINAL_PAGES 1
 
 psnip_declare_define(test_dst, "lfence\n"
-                               "ret\n"
-                               "int3\n");
+			       "ret\n"
+			       "int3\n");
 
 typedef struct registers {
-    union {
-        void *code_ptr;
-        uint64_t code_addr;
-        void (*f)(void *);
-    };
+	union {
+		void *code_ptr;
+		uint64_t code_addr;
+		void (*f)(void *);
+	};
 } registers_t;
 
 registers_t registers;
 
-void do_call(registers_t *r) {
-    asm volatile("call *%0\n" ::"r"(r->code_ptr) :);
+/**
+ * Get the current ring from CS
+ */
+static __always_inline uint8_t get_ring(void)
+{
+	uint64_t cs;
+	asm volatile("movq %%cs, %0\n\t" : "=r"(cs));
+	return cs & 3;
 }
 
-static void guest_main(void) {
-    GUEST_PRINTF("Hello Guest!\n");
+/**
+ * Drop privileges from supervisor to user using iret
+ */
+static __always_inline void supervisor2user(void)
+{
+	// clang-format off
+	asm volatile(
+		/* Disable interrupts */
+		"cli\n\t"
 
-    do_call(&registers);
+		"movq %%rsp, %%rax\n\t"
 
-    GUEST_DONE();
+		/* Push User SS */
+		"pushq $" STR(__USER_DS) "\n\t"
+		// "pushq $0x2b\n\t"
+
+		/* Push RSP */
+		"pushq %%rax\n\t"
+
+		/* Push RFLAGS and re-enable interrupts */
+		"pushfq\n\t"
+		"orl $(" STR(X86_EFLAGS_IOPL | X86_EFLAGS_IF) "), (%%rsp)\n\t"
+
+		/* Push User CS */
+		"pushq $" STR(__USER_CS) "\n\t"
+		// "pushq $0x33\n\t"
+
+		/* Push User RIP */
+		"lea return_here%=, %%rax\n\t"
+		"pushq %%rax\n\t"
+
+		/* Pray */
+		"iretq\n\t"
+
+		"return_here%=:\n\t"
+		/* TODO clobber stuff */
+		::: "rax", "memory"
+	);
+	// clang-format on
 }
 
-static void run_vcpu(struct kvm_vcpu *vcpu) {
-    struct ucall uc;
-
-    vcpu_run(vcpu);
-
-    switch (get_ucall(vcpu, &uc)) {
-    case UCALL_SYNC:
-        return;
-    case UCALL_DONE:
-        return;
-    case UCALL_ABORT:
-        REPORT_GUEST_ASSERT(uc);
-    case UCALL_PRINTF:
-        // allow the guest to print debug information
-        printf("guest | %s", uc.buffer);
-        break;
-    default:
-        TEST_ASSERT(false, "Unexpected exit: %s",
-                    exit_reason_str(vcpu->run->exit_reason));
-    }
+/**
+ * Escalate privileges from user to supervisor using syscall
+ */
+static __always_inline void user2supervisor(void)
+{
+	asm volatile("mov $1, %%rax\n\t" // Set syscall number
+		     "syscall\n\t" ::
+			     : "rax", "rcx", "r11");
 }
 
-void copy_to_guest(struct kvm_vm *vm, stub_t *stub) {
-    static u64 next_slot = NR_MEM_REGIONS;
-    static u64 used_pages = 0;
-
-    u64 guest_num_pages = stub->size / PAGE_SIZE;
-    u64 guest_test_phys_mem = (vm->max_gfn - used_pages - guest_num_pages) * PAGE_SIZE;
-
-    // map guest memory
-    vm_userspace_mem_region_add(vm, DEFAULT_VM_MEM_SRC, guest_test_phys_mem, next_slot,
-                                guest_num_pages, 0);
-    virt_map(vm, stub->base_addr, guest_test_phys_mem, guest_num_pages);
-    used_pages += guest_num_pages;
-    ++next_slot;
-
-    // copy the data to the guest
-    u64 *addr = addr_gpa2hva(vm, (vm_paddr_t) guest_test_phys_mem);
-    memcpy(addr, stub->base_ptr, stub->size);
+void do_call(registers_t *r)
+{
+	asm volatile("call *%0\n" ::"r"(r->code_ptr) :);
 }
 
-int test(void) {
-    printf("Run hopping test\n");
-
-    // prepare VM
-    struct kvm_vcpu *vcpu;
-    struct kvm_vm *vm;
-
-    printf("Create VM\n");
-    // VM wants to know total extra memory for page tables
-    // * 4 * 512 is needed cause the utils assume consecutive memory pages
-    u64 extra_pages = NUM_ADDITINAL_PAGES * 2 * (2 * 512);
-    vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
-    // start up vm (until printf)
-    run_vcpu(vcpu);
-
-    // allocate some code
-    jita_ctxt_t jita = jita_init();
-    jita_push_psnip(&jita, &test_dst);
-    stub_t stub = stub_init();
-    u64 train_dst_addr = rand47();
-    jita_allocate(&jita, &stub, train_dst_addr);
-
-    // also map the code into the VM
-    copy_to_guest(vm, &stub);
-
-    printf("send state information to VM\n");
-    // inform the guest about the current configuration
-    registers.code_addr = train_dst_addr;
-    sync_global_to_guest(vm, registers);
-
-    // Host user
-    printf("run in host user\n");
-    // do_call(&registers);
-    rup_call(registers.code_ptr, NULL);
-
-    // Host kernel
-    printf("run in host kernel\n");
-    rap_call(registers.code_ptr, NULL);
-
-    // Guest kernel or supervisor?
-    printf("run in guest\n");
-    run_vcpu(vcpu);
-
-    // TODO: Guest kernel or supervisor?
-
-    // cleanup
-    jita_deallocate(&jita, &stub);
-    kvm_vm_free(vm);
-
-    return 0;
+/**
+ * A syscall handler, that simply returns to the syscall callsite
+ *
+ * As it uses return instead of sysret, it essentially allows to escalate privileges.
+ */
+static void syscall_handler_return(void)
+{
+	asm volatile("pushq %%rcx\n\t" ::: "memory");
+	return;
 }
 
-int main(void) {
-    srandom(getpid());
+/**
+ * Set `handler` as our syscall handler.
+ */
+static inline void init_syscall(void (*handler)(void))
+{
+	GUEST_PRINTF("Setup syscall handler\n");
 
-    rap_init();
-    pi_init();
+	// Enable syscalls
+	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SCE);
 
-    test();
+	// Set handler
+	wrmsr(MSR_LSTAR, _ul(handler));
 
-    rap_deinit();
-    pi_init();
+	// Set segments
+	wrmsr(MSR_STAR, _ul(__KERNEL_CS) << 32 | _ul(__USER_CS_STAR) << 48);
+}
 
-    printf("done\n");
+static void guest_main(void)
+{
+	init_syscall(syscall_handler_return);
+
+	GUEST_PRINTF("Hello from Guest Supervisor!\n");
+	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	do_call(&registers);
+
+	supervisor2user();
+	GUEST_PRINTF("Dropped privileges to user\n");
+	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	do_call(&registers);
+
+	user2supervisor();
+	GUEST_PRINTF("Escalated privileges to supervisor\n");
+	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	do_call(&registers);
+
+	supervisor2user();
+	GUEST_PRINTF("Dropped privileges to user\n");
+	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	do_call(&registers);
+
+	user2supervisor();
+	GUEST_PRINTF("Escalated privileges to supervisor\n");
+	GUEST_PRINTF("Running in ring %u\n", get_ring());
+	do_call(&registers);
+
+	GUEST_PRINTF("Exiting VM\n");
+	GUEST_DONE();
+	return;
+}
+
+static void run_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct ucall uc;
+
+	while (true) {
+		vcpu_run(vcpu);
+
+		switch (get_ucall(vcpu, &uc)) {
+		case UCALL_SYNC:
+			printf("Got sync signal\n");
+			printf("With %lu arguments\n", uc.args[1]);
+			break;
+		case UCALL_DONE:
+			printf("Got done signal\n");
+			return;
+		case UCALL_ABORT:
+			printf("Got abort signal\n");
+			REPORT_GUEST_ASSERT(uc);
+			break;
+		case UCALL_PRINTF:
+			printf("guest | %s", uc.buffer);
+			break;
+		case UCALL_NONE:
+			printf("Received none, of type: ");
+			switch (vcpu->run->exit_reason) {
+			case KVM_EXIT_SHUTDOWN:
+				printf("Shutdown\n");
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+				printf("Most likely something went wrong. VM quit\n");
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+				return;
+			default:
+				printf("%s\nContinue\n",
+				       exit_reason_str(vcpu->run->exit_reason));
+				break;
+			}
+			break;
+		default:
+			TEST_ASSERT(false, "Unexpected exit: %s",
+				    exit_reason_str(vcpu->run->exit_reason));
+		}
+	}
+}
+
+void copy_to_guest(struct kvm_vm *vm, stub_t *stub)
+{
+	static u64 next_slot = NR_MEM_REGIONS;
+	static u64 used_pages = 0;
+
+	u64 guest_num_pages = stub->size / PAGE_SIZE;
+	u64 guest_test_phys_mem =
+		(vm->max_gfn - used_pages - guest_num_pages) * PAGE_SIZE;
+
+	// map guest memory
+	vm_userspace_mem_region_add(vm, DEFAULT_VM_MEM_SRC, guest_test_phys_mem,
+				    next_slot, guest_num_pages, 0);
+	virt_map(vm, stub->base_addr, guest_test_phys_mem, guest_num_pages);
+	used_pages += guest_num_pages;
+	++next_slot;
+
+	// copy the data to the guest
+	u64 *addr = addr_gpa2hva(vm, (vm_paddr_t)guest_test_phys_mem);
+	memcpy(addr, stub->base_ptr, stub->size);
+}
+
+int test(void)
+{
+	// prepare VM
+	struct kvm_vcpu *vcpu;
+	struct kvm_vm *vm;
+
+	printf("Create VM\n");
+	// VM wants to know total extra memory for page tables
+	// * 4 * 512 is needed cause the utils assume consecutive memory pages
+	u64 extra_pages = NUM_ADDITINAL_PAGES * 2 * (2 * 512);
+	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
+
+	vm_init_descriptor_tables(vm);
+	vcpu_init_descriptor_tables(vcpu);
+	// vm_install_exception_handler(vm, <NR>, <HANDLER>); // Register handler if required
+
+	// allocate some code
+	jita_ctxt_t jita = jita_init();
+	jita_push_psnip(&jita, &test_dst);
+	stub_t stub = stub_init();
+	u64 train_dst_addr = rand47();
+	jita_allocate(&jita, &stub, train_dst_addr);
+
+	// also map the code into the VM
+	copy_to_guest(vm, &stub);
+
+	printf("send state information to VM\n");
+	// inform the guest about the current configuration
+	registers.code_addr = train_dst_addr;
+	sync_global_to_guest(vm, registers);
+
+	// Host user
+	printf("run in host user\n");
+	do_call(&registers);
+	rup_call(registers.code_ptr, NULL);
+
+	// Host kernel
+	printf("run in host kernel\n");
+	rap_call(registers.code_ptr, NULL);
+
+	// Guest supervisor
+	printf("run in guest supervisor and user\n");
+	run_vcpu(vcpu);
+
+	// cleanup
+	jita_deallocate(&jita, &stub);
+	kvm_vm_free(vm);
+
+	return 0;
+}
+
+int main(void)
+{
+	srandom(getpid());
+
+	rap_init();
+	pi_init();
+
+	test();
+
+	rap_deinit();
+	pi_init();
+
+	printf("done\n");
 }
