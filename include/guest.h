@@ -101,5 +101,11 @@ static inline void uarf_init_syscall(void (*handler)(void), uint16_t kernel_cs,
  * A syscall handler, that simply returns to the syscall callsite
  *
  * As it uses return instead of sysret, it essentially allows to escalate privileges.
+ *
+ * Must be static and not inlined, other we cannot access it from guest.
  */
-void uarf_syscall_handler_return(void);
+// TODO: ensure not inlined
+static void uarf_syscall_handler_return(void) {
+    asm volatile("pushq %%rcx\n\t" ::: "memory");
+    return;
+}
