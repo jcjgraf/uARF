@@ -27,6 +27,7 @@
 #define rdtsc lib_rdtsc
 #define rdtscp lib_rdtscp
 #include "uarf/lib.h"
+#include "uarf/guest.h"
 #undef cpuid
 #undef rdmsr
 #undef wrmsr
@@ -61,103 +62,14 @@ typedef struct registers {
 
 registers_t registers;
 
-/**
- * Get the current ring from CS
- */
-static __always_inline uint8_t get_ring(void)
-{
-	uint64_t cs;
-	asm volatile("movq %%cs, %0\n\t" : "=r"(cs));
-	return cs & 3;
-}
-
-/**
- * Drop privileges from supervisor to user using iret
- */
-static __always_inline void supervisor2user(void)
-{
-	// clang-format off
-	asm volatile(
-		/* Disable interrupts */
-		"cli\n\t"
-
-		"movq %%rsp, %%rax\n\t"
-
-		/* Push User SS */
-		"pushq $" STR(__USER_DS) "\n\t"
-		// "pushq $0x2b\n\t"
-
-		/* Push RSP */
-		"pushq %%rax\n\t"
-
-		/* Push RFLAGS and re-enable interrupts */
-		"pushfq\n\t"
-		"orl $(" STR(X86_EFLAGS_IOPL | X86_EFLAGS_IF) "), (%%rsp)\n\t"
-
-		/* Push User CS */
-		"pushq $" STR(__USER_CS) "\n\t"
-		// "pushq $0x33\n\t"
-
-		/* Push User RIP */
-		"lea return_here%=, %%rax\n\t"
-		"pushq %%rax\n\t"
-
-		/* Pray */
-		"iretq\n\t"
-
-		"return_here%=:\n\t"
-		/* TODO clobber stuff */
-		::: "rax", "memory"
-	);
-	// clang-format on
-}
-
-/**
- * Escalate privileges from user to supervisor using syscall
- */
-static __always_inline void user2supervisor(void)
-{
-	asm volatile("mov $1, %%rax\n\t" // Set syscall number
-		     "syscall\n\t" ::
-			     : "rax", "rcx", "r11");
-}
-
 void do_call(registers_t *r)
 {
 	asm volatile("call *%0\n" ::"r"(r->code_ptr) :);
 }
 
-/**
- * A syscall handler, that simply returns to the syscall callsite
- *
- * As it uses return instead of sysret, it essentially allows to escalate privileges.
- */
-static void syscall_handler_return(void)
-{
-	asm volatile("pushq %%rcx\n\t" ::: "memory");
-	return;
-}
-
-/**
- * Set `handler` as our syscall handler.
- */
-static inline void init_syscall(void (*handler)(void))
-{
-	GUEST_PRINTF("Setup syscall handler\n");
-
-	// Enable syscalls
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SCE);
-
-	// Set handler
-	wrmsr(MSR_LSTAR, _ul(handler));
-
-	// Set segments
-	wrmsr(MSR_STAR, _ul(__KERNEL_CS) << 32 | _ul(__USER_CS_STAR) << 48);
-}
-
 static void guest_main(void)
 {
-	init_syscall(syscall_handler_return);
+	init_syscall(syscall_handler_return, __KERNEL_CS, __USER_CS_STAR);
 
 	GUEST_PRINTF("Hello from Guest Supervisor!\n");
 	GUEST_PRINTF("Running in ring %u\n", get_ring());
