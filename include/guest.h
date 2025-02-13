@@ -85,8 +85,7 @@ static __always_inline void uarf_user2supervisor(void) {
 /**
  * Set `handler` as our syscall handler.
  */
-static inline void uarf_init_syscall(void (*handler)(void), uint16_t kernel_cs,
-                                     uint16_t user_cs_star) {
+static inline void uarf_init_syscall(void (*handler)(void)) {
     // Enable syscalls
     uarf_wrmsr(MSR_EFER, uarf_rdmsr(MSR_EFER) | MSR_EFER__SCE);
 
@@ -94,7 +93,15 @@ static inline void uarf_init_syscall(void (*handler)(void), uint16_t kernel_cs,
     uarf_wrmsr(MSR_LSTAR, _ul(handler));
 
     // Set segments
-    uarf_wrmsr(MSR_STAR, _ul(kernel_cs) << 32 | _ul(user_cs_star) << 48);
+#ifndef __USER_CS_STAR
+#warning __USER_CS_STAR is not defined
+#define __USER_CS_STAR 0
+#endif
+#ifndef __KERNEL_CS
+#warning __KERNEL_CS is not defined
+#define __KERNEL_CS 0
+#endif
+    uarf_wrmsr(MSR_STAR, _ul(__KERNEL_CS) << 32 | _ul(__USER_CS_STAR) << 48);
 }
 
 /**

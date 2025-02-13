@@ -56,8 +56,7 @@ void do_call(registers_t *r)
 
 static void guest_main(void)
 {
-	uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS,
-			  __USER_CS_STAR);
+	uarf_init_syscall(uarf_syscall_handler_return);
 
 	GUEST_PRINTF("Hello from Guest Supervisor!\n");
 	GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
@@ -193,7 +192,7 @@ int test(void)
 	printf("run in host kernel\n");
 	uarf_rap_call(registers.code_ptr, NULL);
 
-	// Guest supervisor
+	// Guest supervisor and user
 	printf("run in guest supervisor and user\n");
 	run_vcpu(vcpu);
 
