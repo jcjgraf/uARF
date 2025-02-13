@@ -66,7 +66,6 @@ The Linux Kernel provides a selftest environment that allow to run KVM based gue
     - `tools/testing/selftests/kvm/lib/uarf` must point to `<UARF_ROOT>`
 - Apply patch `./linux/patches/0002-Add-support-for-guest-user.patch`
 - Write experiments inside `tools/testing/selftests/kvm/x86_64/rev_eng`, similarly as when writing them in uARF
-    - **IMPORTANT**: Include `uarf/guest.h` **AFTER** including any other non-uarf includes
     - You can again have an attendant ASM file
 - Make your experiment known to the build system by adding `TEST_GEN_PROGS_x86_64 += x86_64/rev_eng/<EXPERIMENT_BASE_NAME>` to `tools/testing/selftests/kvm/Makefile`
 - Also add `TEST_GEN_FILES += x86_64/rev_eng/<EXPERIMENT_BASE_NAME>_asm.o` if your experiment has an attendant ASM file

@@ -19,7 +19,7 @@ static __always_inline uint8_t uarf_get_ring(void) {
 /**
  * Drop privileges from supervisor to user using iret
  */
-static __always_inline void uarf_supervisor2user(void) {
+static __always_inline void uarf_supervisor2user(uint64_t user_ds, uint64_t user_cs) {
     // clang-format off
 	asm volatile(
 		/* Disable interrupts */
@@ -28,36 +28,23 @@ static __always_inline void uarf_supervisor2user(void) {
 		"movq %%rsp, %%rax\n\t"
 
 		/* Push User SS */
-#ifndef __USER_DS
-#warning __USER_DS is not defined
-#define __USER_DS 0
-#endif
-
-		"pushq $" STR(__USER_DS) "\n\t"
+		"pushq $%[user_ds]\n\t"
 
 		/* Push RSP */
 		"pushq %%rax\n\t"
 
 		/* Push RFLAGS and re-enable interrupts */
 		"pushfq\n\t"
-#ifndef X86_EFLAGS_IF
-#warning X86_EFLAGS_IF is not defined
-#define X86_EFLAGS_IF 0
-#endif
 
-#ifndef X86_EFLAGS_IOPL
-#warning X86_EFLAGS_IOPL is not defined
-#define X86_EFLAGS_IOPL 0
-#endif
+#define UARF_X86_EFLAGS_IF_BIT	9 /* Interrupt Flag */
+#define UARF_X86_EFLAGS_IF		BITT(uint64_t, X86_EFLAGS_IF_BIT)
+#define UARF_X86_EFLAGS_IOPL_BIT	12 /* I/O Privilege Level (2 bits) */
+#define UARF_X86_EFLAGS_IOPL		(3ul << X86_EFLAGS_IOPL_BIT)
 
-		"orl $(" STR(X86_EFLAGS_IOPL | X86_EFLAGS_IF) "), (%%rsp)\n\t"
+		"orl $(" STR(UARF_X86_EFLAGS_IOPL | UARF_X86_EFLAGS_IF) "), (%%rsp)\n\t"
 
 		/* Push User CS */
-#ifndef __USER_CS
-#warning __USER_CS is not defined
-#define __USER_CS 0
-#endif
-		"pushq $" STR(__USER_CS) "\n\t"
+		"pushq $%[user_cs]\n\t"
 
 		/* Push User RIP */
 		"lea return_here%=, %%rax\n\t"
@@ -68,7 +55,7 @@ static __always_inline void uarf_supervisor2user(void) {
 
 		"return_here%=:\n\t"
 		/* TODO clobber stuff */
-		::: "rax", "memory"
+		:: [user_ds]"r"(user_ds), [user_cs]"r"(user_cs) : "rax", "memory"
 	);
     // clang-format on
 }
@@ -85,7 +72,8 @@ static __always_inline void uarf_user2supervisor(void) {
 /**
  * Set `handler` as our syscall handler.
  */
-static inline void uarf_init_syscall(void (*handler)(void)) {
+static inline void uarf_init_syscall(void (*handler)(void), uint16_t kernel_cs,
+                                     uint16_t user_cs_star) {
     // Enable syscalls
     uarf_wrmsr(MSR_EFER, uarf_rdmsr(MSR_EFER) | MSR_EFER__SCE);
 
@@ -93,15 +81,7 @@ static inline void uarf_init_syscall(void (*handler)(void)) {
     uarf_wrmsr(MSR_LSTAR, _ul(handler));
 
     // Set segments
-#ifndef __USER_CS_STAR
-#warning __USER_CS_STAR is not defined
-#define __USER_CS_STAR 0
-#endif
-#ifndef __KERNEL_CS
-#warning __KERNEL_CS is not defined
-#define __KERNEL_CS 0
-#endif
-    uarf_wrmsr(MSR_STAR, _ul(__KERNEL_CS) << 32 | _ul(__USER_CS_STAR) << 48);
+    uarf_wrmsr(MSR_STAR, _ul(kernel_cs) << 32 | _ul(user_cs_star) << 48);
 }
 
 /**
@@ -111,8 +91,7 @@ static inline void uarf_init_syscall(void (*handler)(void)) {
  *
  * Must be static and not inlined, other we cannot access it from guest.
  */
-// TODO: ensure not inlined
-static void uarf_syscall_handler_return(void) {
+static void __attribute__((used)) uarf_syscall_handler_return(void) {
     asm volatile("pushq %%rcx\n\t" ::: "memory");
     return;
 }
