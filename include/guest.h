@@ -19,45 +19,43 @@ static __always_inline uint8_t uarf_get_ring(void) {
 /**
  * Drop privileges from supervisor to user using iret
  */
+#define UARF_X86_EFLAGS_IF_BIT   9 /* Interrupt Flag */
+#define UARF_X86_EFLAGS_IF       BIT_T(uint64_t, UARF_X86_EFLAGS_IF_BIT)
+#define UARF_X86_EFLAGS_IOPL_BIT 12 /* I/O Privilege Level (2 bits) */
+#define UARF_X86_EFLAGS_IOPL     (3ul << UARF_X86_EFLAGS_IOPL_BIT)
 static __always_inline void uarf_supervisor2user(uint64_t user_ds, uint64_t user_cs) {
-    // clang-format off
-	asm volatile(
-		/* Disable interrupts */
-		"cli\n\t"
+    asm volatile(
+        /* Disable interrupts */
+        "cli\n\t"
 
-		"movq %%rsp, %%rax\n\t"
+        "movq %%rsp, %%rax\n\t"
 
-		/* Push User SS */
-		"pushq $%[user_ds]\n\t"
+        /* Push User SS */
+        "pushq %[user_ds]\n\t"
 
-		/* Push RSP */
-		"pushq %%rax\n\t"
+        /* Push RSP */
+        "pushq %%rax\n\t"
 
-		/* Push RFLAGS and re-enable interrupts */
-		"pushfq\n\t"
+        /* Push RFLAGS and re-enable interrupts */
+        "pushfq\n\t"
 
-#define UARF_X86_EFLAGS_IF_BIT	9 /* Interrupt Flag */
-#define UARF_X86_EFLAGS_IF		BITT(uint64_t, X86_EFLAGS_IF_BIT)
-#define UARF_X86_EFLAGS_IOPL_BIT	12 /* I/O Privilege Level (2 bits) */
-#define UARF_X86_EFLAGS_IOPL		(3ul << X86_EFLAGS_IOPL_BIT)
+        "orq %[rflag_op], (%%rsp)\n\t"
 
-		"orl $(" STR(UARF_X86_EFLAGS_IOPL | UARF_X86_EFLAGS_IF) "), (%%rsp)\n\t"
+        /* Push User CS */
+        "pushq %[user_cs]\n\t"
 
-		/* Push User CS */
-		"pushq $%[user_cs]\n\t"
+        /* Push User RIP */
+        "lea return_here%=, %%rax\n\t"
+        "pushq %%rax\n\t"
 
-		/* Push User RIP */
-		"lea return_here%=, %%rax\n\t"
-		"pushq %%rax\n\t"
+        /* Pray */
+        "iretq\n\t"
 
-		/* Pray */
-		"iretq\n\t"
-
-		"return_here%=:\n\t"
-		/* TODO clobber stuff */
-		:: [user_ds]"r"(user_ds), [user_cs]"r"(user_cs) : "rax", "memory"
-	);
-    // clang-format on
+        "return_here%=:\n\t"
+        /* TODO clobber stuff */
+        ::[user_ds] "i"(user_ds),
+        [user_cs] "i"(user_cs), [rflag_op] "r"(UARF_X86_EFLAGS_IOPL | UARF_X86_EFLAGS_IF)
+        : "rax", "memory");
 }
 
 /**
