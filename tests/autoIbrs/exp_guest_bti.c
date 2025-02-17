@@ -11,7 +11,7 @@
  *
  * ### For jmp:
  *
- *          |      HU     |      HS     |      GU     |      GS     |
+ * tr \ sig |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
  *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
@@ -19,11 +19,19 @@
  *       GU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
  *       GS | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
  *
- * autoIBRS has an impact for all attack vectors that try to inject into Supervisor. There is no difference between guest and user.
+ * tr \ sig |   HU  |   HS  |   GU  |   GS  |
+ * autoIBRS | n ! y | n ! y | n ! y | n ! y |
+ * -------- | ----- | ----- | ----- | ----- |
+ *       HU | X ! X | X ! _ | X ! X | X ! _ |
+ *       HS | X ! X | X ! _ | X ! X | X ! _ |
+ *       GU | X ! X | X ! _ | X ! X | X ! _ |
+ *       GS | X ! X | X ! _ | X ! X | X ! _ |
+ *
+ * Neither user and supervisor, nor host and guest are separated in way. autoIBRS is required to protect host/guest supervisor from host/guest user. There is no difference between guest and host.
  *
  * ### For call:
  *
- *          |      HU     |      HS     |      GU     |      GS     |
+ * tr \ sig |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
  *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
@@ -38,25 +46,36 @@
  *
  * ### For jmp:
  *
- *          |      HU     |      HS     |      GU     |      GS     |
+ * tr \ sig |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
- *       HU | 1.00 ! 1.00 |             | XXXX ! XXXX |             |
- *       HS |             |             | XXXX ! XXXX |             |
- *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
- *       GS |             |             | XXXX ! XXXX |             |
+ *       HU | 1.00 ! 1.00 | 0.00 ! 0.00 | 1.00 ! 1.00 | 0.00 ! 0.00 |
+ *       HS | 0.00 ! 0.00 | 1.00 ! 0.00 | 0.00 ! 0.00 | 1.00 ! 0.00 |
+ *       GU | 1.00 ! 1.00 | 0.00 ! 0.00 | 1.00 ! 1.00 | 0.00 ! 0.00 |
+ *       GS | 0.00 ! 0.00 | 1.00 ! 0.00 | 0.00 ! 0.00 | 1.00 ! 0.00 |
  *
- * autoIBRS has an impact for HU -> HS and HS -> HS. Interesting is that we get a signal for GS -> HU and GS -> HS.
+ * tr \ sig |   HU  |   HS  |   GU  |   GS  |
+ * autoIBRS | n ! y | n ! y | n ! y | n ! y |
+ * -------- | ----- | ----- | ----- | ----- |
+ *       HU | X ! X | _ ! _ | X ! X | _ ! _ |
+ *       HS | _ ! _ | X ! _ | _ ! _ | X ! _ |
+ *       GU | X ! X | _ ! _ | X ! X | _ ! _ |
+ *       GS | _ ! _ | X ! _ | _ ! _ | X ! _ |
+ *
+ * User and supervisor are clearly separated, as under no circumstance we get any signal between the two modes. autoIBRS is not required to protect host/guest supervisor from host/guest user. However, is is required to protect host supervisor from guest supervisor, and vice versa. The is no difference between guest and host.
+ *
  *
  * ### For call:
  *
- *          |      HU     |      HS     |      GU     |      GS     |
+ * tr \ sig |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
- *       HU |             |             | XXXX ! XXXX |             |
- *       HS |             |             | XXXX ! XXXX |             |
- *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
- *       GS |             |             | XXXX ! XXXX |             |
+ *       HU | 1.00 ! 1.00 | 0.00 ! 0.00 | 1.00 ! 1.00 | 0.00 ! 0.00 |
+ *       HS | 0.00 ! 0.00 | 1.00 ! 0.00 | 0.00 ! 0.00 | 1.00 ! 0.00 |
+ *       GU | 1.00 ! 1.00 | 0.00 ! 0.00 | 1.00 ! 1.00 | 0.00 ! 0.00 |
+ *       GS | 0.00 ! 0.00 | 1.00 ! 0.00 | 0.00 ! 0.00 | 1.00 ! 0.00 |
+ *
+ * Same as for jmp
  */
 
 #include <ucall_common.h>
@@ -101,8 +120,6 @@ uarf_psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
 uarf_psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
 uarf_psnip_declare(dst_gadget, psnip_dst_gadget);
 uarf_psnip_declare(dst_dummy, psnip_dst_dummy);
-
-uarf_psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
 uarf_psnip_declare_define(psnip_ret, "ret\n\t");
 
@@ -290,48 +307,6 @@ static void uarf_guest_run(struct kvm_vcpu *vcpu)
 	}
 }
 
-static inline void run_spec_host(UarfSpecData *sd, UarfFrConfig *fr)
-{
-	guest_data.spec_data = *sd;
-	run_spec_global();
-}
-
-static void run_spec_guest(UarfSpecData *sd, UarfFrConfig *fr)
-{
-	struct kvm_vcpu *vcpu;
-	struct kvm_vm *vm;
-
-	uint64_t extra_pages = 10 * (3 + 512);
-
-	guest_data.spec_data = *sd;
-
-	// Create VM
-	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages,
-				       guest_supervisor_entry);
-
-	// Sync globals
-	sync_global_to_guest(vm, guest_data);
-	sync_global_to_guest(vm, stub_main);
-	sync_global_to_guest(vm, stub_gadget);
-	sync_global_to_guest(vm, stub_dummy);
-
-	// Map stubs
-	map_stub_to_guest(vm, &stub_main);
-	map_stub_to_guest(vm, &stub_gadget);
-	map_stub_to_guest(vm, &stub_dummy);
-
-	// Map other memory
-	map_mem_to_guest(vm, fr->buf.base_addr, fr->buf_size);
-	map_mem_to_guest(vm, fr->buf2.base_addr, fr->buf_size);
-	map_mem_to_guest(vm, fr->res_addr, fr->res_size);
-
-	// Run VM
-	uarf_guest_run(vcpu);
-
-	// Trash VM (TODO: recycle VM somehow)
-	kvm_vm_free(vm);
-}
-
 UARF_TEST_CASE_ARG(basic, arg)
 {
 	struct TestCaseData *data = (struct TestCaseData *)arg;
@@ -343,7 +318,7 @@ UARF_TEST_CASE_ARG(basic, arg)
 
 	uint64_t extra_pages = 10 * (3 + 512);
 
-	UarfFrConfig fr = uarf_fr_init(8, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
+	UarfFrConfig fr = uarf_fr_init(4, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
 	// struct FrConfig fr = fr_init(8, 1, NULL);
 
 	stub_main = uarf_stub_init();
