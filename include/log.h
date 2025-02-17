@@ -100,4 +100,5 @@ extern UarfLogTag uarf_log_system_tag;
     UARF_LOG_LOG(printf, UARF_LOG_LEVEL_ERROR, UARF_LOG_TAG, "ERROR",                    \
                  UARF_LOG_C_DARK_RED, format __VA_OPT__(, ) __VA_ARGS__)
 #define UARF_HERE()                                                                      \
-    printf(LOG_C_DARK_RED "%s, %s, %u\n" UARF_LOG_C_RESET, __FILE__, __func__, __LINE__)
+    printf(UARF_LOG_C_DARK_RED "%s, %s, %u\n" UARF_LOG_C_RESET, __FILE__, __func__,      \
+           __LINE__)
