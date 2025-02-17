@@ -14,24 +14,25 @@
  *          |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
- *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
- *       HS | 1.00 ! 1.00 | 1.00 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
- *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
- *       GS | 0.30 ! 0.30 | 0.25 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       HS | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       GU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       GS | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
  *
- * autoIBRS has an impact for HU -> HS and HS -> HS. Interesting is that we get a signal for GS -> HU and GS -> HS.
+ * autoIBRS has an impact for all attack vectors that try to inject into Supervisor. There is no difference between guest and user.
  *
  * ### For call:
  *
  *          |      HU     |      HS     |      GU     |      GS     |
  * autoIBRS |   no ! yes  |   no ! yes  |   no ! yes  |   no ! yes  |
  * -------- | ----------- | ----------- | ----------- | ----------- |
- *       HU | 1.00 ! 1.00 | 0.92 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
- *       HS | 0.99 ! 0.99 | 0.98 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
- *       GU | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX | XXXX ! XXXX |
- *       GS | 0.30 ! 0.35 | 0.30 ! 0.00 | XXXX ! XXXX | 0.00 ! 0.00 |
+ *       HU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       HS | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       GU | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
+ *       GS | 1.00 ! 1.00 | 1.00 ! 0.00 | 1.00 ! 1.00 | 1.00 ! 0.00 |
  *
- * autoIBRS has an impact for HU -> HS, HS -> HS and GS -> HS. Interesting is the pretty strong signal for GS -> HS w/o autoIBRS. With autoIBRS, in all three cases where it makes a difference, the signal drops to 0.0. This is in contrast to jmp, where it drops to a low number.
+ * Same as for jmp
+ *
  *
  * ## For Zen5
  *
@@ -59,6 +60,7 @@
  */
 
 #include <ucall_common.h>
+#include "processor.h"
 
 #include "uarf/flush_reload.h"
 #include "uarf/jita.h"
@@ -68,8 +70,16 @@
 #include "uarf/log.h"
 #include "uarf/spec_lib.h"
 #include "uarf/test.h"
-#include "uarf/pfc.h"
-#include "uarf/pfc_amd.h"
+#include "uarf/guest.h"
+
+// TODO: should be defined in uarf/guest.h, but somehow compiler complains
+#define uarf_guest_set_rip(vcpu, target)          \
+	({                                        \
+		struct kvm_regs regs;             \
+		vcpu_regs_get(vcpu, &regs);       \
+		regs.rip = (unsigned long)target; \
+		vcpu_regs_set(vcpu, &regs);       \
+	})
 
 #ifdef UARF_LOG_TAG
 #undef UARF_LOG_TAG
@@ -91,10 +101,6 @@ uarf_psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
 uarf_psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
 uarf_psnip_declare(dst_gadget, psnip_dst_gadget);
 uarf_psnip_declare(dst_dummy, psnip_dst_dummy);
-
-uarf_psnip_declare(rdpmc, psnip_rdpmc);
-// psnip_declare(rdpmc_start, psnip_rdpmc_start);
-// psnip_declare(rdpmc_end, psnip_rdpmc_end);
 
 uarf_psnip_declare(exp_guest_bti_jmp, psnip_jmp);
 
@@ -139,16 +145,32 @@ UarfStub stub_main;
 UarfStub stub_gadget;
 UarfStub stub_dummy;
 
+/*
+ * In contrast to uarf_run_spec this function gets the spec data from a global. This is required for running inside guest. But we can also use this for running on the host.
+ */
 static void run_spec_global(void)
 {
 	UarfSpecData *data = &guest_data.spec_data;
 
 	// Ensure we have access to the required data
 	// It easier to debug if we fail here that later
-	GUEST_ASSERT(*(uint64_t *)data->spec_prim_p || true);
-	GUEST_ASSERT(*(uint64_t *)data->spec_dst_p_p || true);
-	GUEST_ASSERT(**(uint64_t **)data->spec_dst_p_p || true);
-	GUEST_ASSERT(*(uint64_t *)data->fr_buf_p || true);
+	// Also prevents page faults, that would hinder the signal
+	*(volatile uint64_t *)data->spec_prim_p;
+	*(volatile uint64_t *)(_ul(data->spec_prim_p) + PAGE_SIZE);
+	**(volatile uint64_t **)data->spec_dst_p_p;
+	volatile uint64_t *secret_p =
+		&((uint64_t *)data->fr_buf_p)[data->secret];
+	*secret_p;
+
+	*(volatile uint64_t *)stub_main.addr;
+	*(volatile uint64_t *)stub_gadget.addr;
+	*(volatile uint64_t *)stub_dummy.addr;
+
+	uarf_mfence();
+	uarf_lfence();
+
+	// We touched the FR Buffer, so we need to flush again
+	uarf_clflush(secret_p);
 
 	asm volatile("lea return_here%=, %%rax\n\t"
 		     "pushq %%rax\n\t"
@@ -158,13 +180,29 @@ static void run_spec_global(void)
 		     : "rax", "rdx", "rdi", "rsi", "r8", "memory");
 }
 
-static void guest_main(void)
+/*
+ * Entry point into run guest supervisor
+ */
+static void guest_supervisor_entry(void)
 {
-	// GUEST_PRINTF("Guest started\n");
+	run_spec_global();
+	GUEST_DONE();
+}
 
+/*
+ * Entry point into run guest user
+ */
+static void guest_user_entry(void)
+{
+	uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS,
+			  __USER_CS_STAR);
+
+	uarf_supervisor2user(__USER_DS, __USER_CS);
 	run_spec_global();
 
-	// GUEST_PRINTF("Spec done\n");
+	// Return back to supervisor, such that we do no get troubles when recycling the VM
+	uarf_user2supervisor();
+
 	GUEST_DONE();
 }
 
@@ -201,16 +239,15 @@ void map_mem_to_guest(struct kvm_vm *vm, uint64_t va, uint64_t size)
 }
 
 // TODO: Move to helper
-void map_UarfStubo_guest(struct kvm_vm *vm, UarfStub *stub)
+void map_stub_to_guest(struct kvm_vm *vm, UarfStub *stub)
 {
 	UARF_LOG_TRACE("(vm: %p, stub: %p)\n", vm, stub);
 	map_mem_to_guest(vm, stub->base_addr, stub->size);
 }
 
 // TODO: Move to helper
-static void run_vcpu(struct kvm_vcpu *vcpu)
+static void uarf_guest_run(struct kvm_vcpu *vcpu)
 {
-	UARF_LOG_TRACE("(vcpu: %p)\n", vcpu);
 	struct ucall uc;
 
 	while (true) {
@@ -218,19 +255,37 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 
 		switch (get_ucall(vcpu, &uc)) {
 		case UCALL_SYNC:
-			return;
+			printf("Got sync signal\n");
+			printf("With %lu arguments\n", uc.args[1]);
+			break;
 		case UCALL_DONE:
+			// printf("Got done signal\n");
 			return;
 		case UCALL_ABORT:
+			printf("Got abort signal\n");
 			REPORT_GUEST_ASSERT(uc);
+			break;
 		case UCALL_PRINTF:
-			// allow the guest to print debug information
 			printf("guest | %s", uc.buffer);
 			break;
+		case UCALL_NONE:
+			printf("Received none, of type: ");
+			switch (vcpu->run->exit_reason) {
+			case KVM_EXIT_SHUTDOWN:
+				printf("Shutdown\n");
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+				printf("Most likely something went wrong. VM quit\n");
+				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+				return;
+			default:
+				printf("%s\nContinue\n",
+				       exit_reason_str(vcpu->run->exit_reason));
+				break;
+			}
+			break;
 		default:
-			TEST_FAIL("Unhandled ucall: %ld\nexit_reason: %u (%s)",
-				  uc.cmd, vcpu->run->exit_reason,
-				  exit_reason_str(vcpu->run->exit_reason));
+			TEST_ASSERT(false, "Unexpected exit: %s",
+				    exit_reason_str(vcpu->run->exit_reason));
 		}
 	}
 }
@@ -251,7 +306,8 @@ static void run_spec_guest(UarfSpecData *sd, UarfFrConfig *fr)
 	guest_data.spec_data = *sd;
 
 	// Create VM
-	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
+	vm = __vm_create_with_one_vcpu(&vcpu, extra_pages,
+				       guest_supervisor_entry);
 
 	// Sync globals
 	sync_global_to_guest(vm, guest_data);
@@ -260,9 +316,9 @@ static void run_spec_guest(UarfSpecData *sd, UarfFrConfig *fr)
 	sync_global_to_guest(vm, stub_dummy);
 
 	// Map stubs
-	map_UarfStubo_guest(vm, &stub_main);
-	map_UarfStubo_guest(vm, &stub_gadget);
-	map_UarfStubo_guest(vm, &stub_dummy);
+	map_stub_to_guest(vm, &stub_main);
+	map_stub_to_guest(vm, &stub_gadget);
+	map_stub_to_guest(vm, &stub_dummy);
 
 	// Map other memory
 	map_mem_to_guest(vm, fr->buf.base_addr, fr->buf_size);
@@ -270,7 +326,7 @@ static void run_spec_guest(UarfSpecData *sd, UarfFrConfig *fr)
 	map_mem_to_guest(vm, fr->res_addr, fr->res_size);
 
 	// Run VM
-	run_vcpu(vcpu);
+	uarf_guest_run(vcpu);
 
 	// Trash VM (TODO: recycle VM somehow)
 	kvm_vm_free(vm);
@@ -285,16 +341,10 @@ UARF_TEST_CASE_ARG(basic, arg)
 		      MODE_STR[data->signal_mode],
 		      data->auto_ibrs ? "yes" : "no");
 
-	struct kvm_vcpu *vcpu;
-	struct kvm_vm *vm;
-
 	uint64_t extra_pages = 10 * (3 + 512);
 
 	UarfFrConfig fr = uarf_fr_init(8, 6, (size_t[]){ 0, 1, 2, 3, 5, 10 });
 	// struct FrConfig fr = fr_init(8, 1, NULL);
-
-	UarfPm pm;
-	uarf_pm_init(&pm, UARF_AMD_EX_RET_BRN_IND_MISP);
 
 	stub_main = uarf_stub_init();
 	stub_gadget = uarf_stub_init();
@@ -329,9 +379,6 @@ UARF_TEST_CASE_ARG(basic, arg)
 			.fr_buf_p = fr.buf2.addr,
 			.secret = 0,
 			.hist = h1,
-			.ustack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
-			.istack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
-			.ostack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
 		};
 
 		UarfSpecData signal_data = {
@@ -339,24 +386,39 @@ UARF_TEST_CASE_ARG(basic, arg)
 			.spec_dst_p_p = _ul(&stub_dummy.addr),
 			// .spec_dst_p_p = _ul(&stub_gadget.addr),
 			.fr_buf_p = fr.buf.addr,
-			.secret = 1,
+			.secret = 0,
 			.hist = h2,
-			.ustack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
-			.istack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
-			.ostack = { .index = 0, .buffer = { 0 }, .scratch = 0 },
 		};
+
+		struct kvm_vcpu *vcpu = NULL;
+		struct kvm_vm *vm = NULL;
+		if (data->train_mode == GUEST_USER ||
+		    data->train_mode == GUEST_SUPERVISOR ||
+		    data->signal_mode == GUEST_USER ||
+		    data->signal_mode == GUEST_SUPERVISOR) {
+			// Target does not matter yet, as we reset it anyways
+			vm = __vm_create_with_one_vcpu(&vcpu, extra_pages,
+						       guest_user_entry);
+
+			// Sync globals
+			sync_global_to_guest(vm, guest_data);
+			sync_global_to_guest(vm, stub_main);
+			sync_global_to_guest(vm, stub_gadget);
+			sync_global_to_guest(vm, stub_dummy);
+
+			// Map stubs
+			map_stub_to_guest(vm, &stub_main);
+			map_stub_to_guest(vm, &stub_gadget);
+			map_stub_to_guest(vm, &stub_dummy);
+
+			// Map other memory
+			map_mem_to_guest(vm, fr.buf.base_addr, fr.buf_size);
+			map_mem_to_guest(vm, fr.buf2.base_addr, fr.buf_size);
+			map_mem_to_guest(vm, fr.res_addr, fr.res_size);
+		}
 
 		for (size_t r = 0; r < data->num_rounds; r++) {
 			for (size_t t = 0; t < data->num_train_rounds; t++) {
-				// Prepare stacks
-				uarf_cstack_reset(&train_data.ustack);
-				uarf_cstack_reset(&train_data.istack);
-				uarf_cstack_reset(&train_data.ostack);
-				uarf_cstack_push(&train_data.istack,
-						 pm.pfc.index);
-				uarf_cstack_push(&train_data.istack,
-						 pm.pfc.index);
-
 				switch (data->train_mode) {
 				case HOST_USER:
 					guest_data.spec_data = train_data;
@@ -380,83 +442,31 @@ UARF_TEST_CASE_ARG(basic, arg)
 						      &train_data);
 					break;
 				case GUEST_USER:
-					UARF_LOG_WARNING(
-						"Running in guest user is currently not supported\n");
+					guest_data.spec_data = train_data;
+					sync_global_to_guest(vm, guest_data);
+
+					uarf_guest_set_rip(vcpu,
+							   guest_user_entry);
+					uarf_guest_run(vcpu);
+
 					break;
 				case GUEST_SUPERVISOR:
 					guest_data.spec_data = train_data;
-
-					// Create VM
-					vm = __vm_create_with_one_vcpu(
-						&vcpu, extra_pages, guest_main);
-
-					// Sync globals
 					sync_global_to_guest(vm, guest_data);
-					sync_global_to_guest(vm, stub_main);
-					sync_global_to_guest(vm, stub_gadget);
-					sync_global_to_guest(vm, stub_dummy);
 
-					// Map stubs
-					map_UarfStubo_guest(vm, &stub_main);
-					map_UarfStubo_guest(vm, &stub_gadget);
-					map_UarfStubo_guest(vm, &stub_dummy);
-
-					// Map other memory
-
-					map_mem_to_guest(vm, fr.buf.base_addr,
-							 fr.buf_size);
-					map_mem_to_guest(vm, fr.buf2.base_addr,
-							 fr.buf_size);
-					map_mem_to_guest(vm, fr.res_addr,
-							 fr.res_size);
-
-					run_vcpu(vcpu);
-
-					kvm_vm_free(vm);
+					uarf_guest_set_rip(
+						vcpu, guest_supervisor_entry);
+					uarf_guest_run(vcpu);
 					break;
 				}
 			}
-
-			// Prepare stacks
-			uarf_cstack_reset(&signal_data.ustack);
-			uarf_cstack_reset(&signal_data.istack);
-			uarf_cstack_reset(&signal_data.ostack);
-			uarf_cstack_push(&signal_data.istack, pm.pfc.index);
-			uarf_cstack_push(&signal_data.istack, pm.pfc.index);
 
 			switch (data->signal_mode) {
 			case HOST_USER:
 				uarf_fr_flush(&fr);
 				guest_data.spec_data = signal_data;
 				run_spec_global();
-
 				signal_data = guest_data.spec_data;
-
-				({
-					uint64_t end_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t end_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-
-					uint64_t end = uarf_pm_transform_raw1(
-						&pm.pfc, end_lo, end_hi);
-					uint64_t start = uarf_pm_transform_raw1(
-						&pm.pfc, start_lo, start_hi);
-
-					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
-					//        start, start_lo, start_hi);
-					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
-					//        end, end_lo, end_hi);
-					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
-					//        start, end, end - start);
-
-					pm.count += end - start;
-				});
-
 				uarf_fr_reload_binned(&fr, r);
 				break;
 			case HOST_SUPERVISOR:
@@ -469,102 +479,47 @@ UARF_TEST_CASE_ARG(basic, arg)
 				*(volatile char *)signal_data.spec_prim_p;
 				**(volatile char **)signal_data.spec_dst_p_p;
 				*(volatile char *)signal_data.fr_buf_p;
+
 				uarf_fr_flush(&fr);
 				uarf_rap_call(uarf_run_spec, &signal_data);
-
-				({
-					uint64_t end_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t end_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-
-					uint64_t end = uarf_pm_transform_raw1(
-						&pm.pfc, end_lo, end_hi);
-					uint64_t start = uarf_pm_transform_raw1(
-						&pm.pfc, start_lo, start_hi);
-
-					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
-					//        start, start_lo, start_hi);
-					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
-					//        end, end_lo, end_hi);
-					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
-					//        start, end, end - start);
-
-					pm.count += end - start;
-				});
-
 				uarf_fr_reload_binned(&fr, r);
 				break;
 			case GUEST_USER:
-				UARF_LOG_WARNING(
-					"Running in guest user is currently not supported\n");
-				break;
-			case GUEST_SUPERVISOR:
 				guest_data.spec_data = signal_data;
-
-				// Create VM
-				vm = __vm_create_with_one_vcpu(
-					&vcpu, extra_pages, guest_main);
-
-				// Sync globals
 				sync_global_to_guest(vm, guest_data);
-				sync_global_to_guest(vm, stub_main);
-				sync_global_to_guest(vm, stub_gadget);
-				sync_global_to_guest(vm, stub_dummy);
-
-				// Map stubs
-				map_UarfStubo_guest(vm, &stub_main);
-				map_UarfStubo_guest(vm, &stub_gadget);
-				map_UarfStubo_guest(vm, &stub_dummy);
-
-				// Map other memory
-				map_mem_to_guest(vm, fr.buf.base_addr,
-						 fr.buf_size);
-				map_mem_to_guest(vm, fr.buf2.base_addr,
-						 fr.buf_size);
-				map_mem_to_guest(vm, fr.res_addr, fr.res_size);
 
 				fr.buf.handle_p = addr_gva2hva(vm, fr.buf.addr);
 				uarf_fr_flush(&fr);
-				run_vcpu(vcpu);
+
+				uarf_guest_set_rip(vcpu, guest_user_entry);
+				uarf_guest_run(vcpu);
 
 				sync_global_from_guest(vm, guest_data);
-
-				({
-					uint64_t end_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t end_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_lo = uarf_cstack_pop(
-						&signal_data.ostack);
-					uint64_t start_hi = uarf_cstack_pop(
-						&signal_data.ostack);
-
-					uint64_t end = uarf_pm_transform_raw1(
-						&pm.pfc, end_lo, end_hi);
-					uint64_t start = uarf_pm_transform_raw1(
-						&pm.pfc, start_lo, start_hi);
-
-					// printf("start: %lu,\tlo: %lx,\thi: %lx\n",
-					//        start, start_lo, start_hi);
-					// printf("end: %lu,\tlo: %lx,\thi: %lx\n",
-					//        end, end_lo, end_hi);
-					// printf("start: %lu,\tend: %lu,\tdiff: %lu\n",
-					//        start, end, end - start);
-
-					pm.count += end - start;
-				});
-
 				uarf_fr_reload_binned(&fr, r);
+				break;
+			case GUEST_SUPERVISOR:
+				guest_data.spec_data = signal_data;
+				sync_global_to_guest(vm, guest_data);
 
-				kvm_vm_free(vm);
+				fr.buf.handle_p = addr_gva2hva(vm, fr.buf.addr);
+				uarf_fr_flush(&fr);
+
+				uarf_guest_set_rip(vcpu,
+						   guest_supervisor_entry);
+				uarf_guest_run(vcpu);
+
+				sync_global_from_guest(vm, guest_data);
+				uarf_fr_reload_binned(&fr, r);
 				break;
 			}
 		}
+
+		if (vm) {
+			kvm_vm_free(vm);
+		}
+		// if (vm_signal) {
+		// 	kvm_vm_free(vm_signal);
+		// }
 
 		uarf_jita_deallocate(data->jita_main, &stub_main);
 		uarf_jita_deallocate(data->jita_gadget, &stub_gadget);
@@ -574,9 +529,6 @@ UARF_TEST_CASE_ARG(basic, arg)
 	uarf_fr_print(&fr);
 
 	uarf_fr_deinit(&fr);
-
-	printf("pm:    %lu\n", uarf_pm_get(&pm));
-	uarf_pm_deinit(&pm);
 
 	UARF_TEST_PASS();
 }
@@ -603,15 +555,13 @@ UARF_TEST_SUITE()
 	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
 	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
 
-	uarf_jita_push_psnip(&jita_main_call, &psnip_rdpmc);
-
 	uarf_jita_clone(&jita_main_call, &jita_main_jmp);
 
 	uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
-	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+	uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
 
-	uarf_jita_push_psnip(&jita_main_call, &psnip_rdpmc);
-	uarf_jita_push_psnip(&jita_main_jmp, &psnip_rdpmc);
+	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
 
 	uarf_jita_push_psnip(&jita_main_call, &psnip_ret);
 	uarf_jita_push_psnip(&jita_main_jmp, &psnip_ret);
@@ -675,15 +625,15 @@ UARF_TEST_SUITE()
 	// clang-format off
 	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
 	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
-	//
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
-	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
-	//
-	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
-	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
-	//
-	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
-	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
+
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+
+	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
+
+	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
 
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_jmp);
@@ -691,8 +641,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_jmp);
 	//
-	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
-	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
 	//
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
@@ -703,8 +653,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
 	//
-	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_jmp);
-	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_jmp);
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
@@ -715,8 +665,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_jmp);
 	//
-	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
-	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_jmp);
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
@@ -728,8 +678,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_call);
 	//
-	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_call);
-	// // data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_call);
 	//
 	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_call);
@@ -740,8 +690,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_call);
 	//
-	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_call);
-	// // data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_call);
 	//
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
@@ -752,8 +702,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_call);
 	//
-	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_call);
-	// // data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_call);
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, true, jita_main_call);
@@ -764,8 +714,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_call);
 	//
-	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_call);
-	// // data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_call);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_call);
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
