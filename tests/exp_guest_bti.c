@@ -118,6 +118,7 @@
 uarf_psnip_declare(history, psnip_history);
 uarf_psnip_declare(src_call_ind_no_ret, psnip_src_call_ind);
 uarf_psnip_declare(src_jmp_ind_no_ret, psnip_src_jmp_ind);
+uarf_psnip_declare(src_ret_no_ret, psnip_src_ret);
 uarf_psnip_declare(dst_gadget, psnip_dst_gadget);
 uarf_psnip_declare(dst_dummy, psnip_dst_dummy);
 
