@@ -65,10 +65,12 @@ struct UarfSpecData {
 } __aligned(8) __packed;
 
 __always_inline void uarf_cstack_push(UarfCStack *stk, uint64_t value) {
+    uarf_assert(stk->index < UARF_CSTACK_LEN);
     stk->buffer[stk->index++] = value;
 }
 
 __always_inline uint64_t uarf_cstack_pop(UarfCStack *stk) {
+    uarf_assert(stk->index >= 1);
     return stk->buffer[--stk->index];
 }
 
