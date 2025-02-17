@@ -6,11 +6,11 @@
 #include <string.h>
 #include <sys/mman.h>
 
-/*
- * Initialize a PFC
- */
-int uarf_pfc_init(UarfPfc *pfc) {
-    UARF_LOG_TRACE("(%p)\n", pfc);
+int uarf_pfc_init(UarfPfc *pfc, uint64_t config) {
+    UARF_LOG_TRACE("(%p, %lu)\n", pfc, config);
+    memset(pfc, 0, sizeof(UarfPfc));
+    pfc->config = config;
+
     struct perf_event_attr pe;
     memset(&pe, 0, sizeof(pe));
     pe.type = PERF_TYPE_RAW;

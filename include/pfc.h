@@ -1,3 +1,24 @@
+/**
+ * Interact with performance counters
+ *
+ * Provide functionality and utilities to interact with performance counters in a simple
+ * manner. There are different ways to interact with them.
+ *
+ * UarfPfc: Is the most "low-level" interface to the Performance counter. It is read using
+ * either `read(pfc.fd, ...)` or `uarf_pfc_read(&pfc)`. We need to keep track of the read
+ * values, and compute the difference ourselves.
+ *
+ * UarfPm: Is a wrapper around a `UarfPfc` that provides a nicer interface. We can take a
+ * measurement by running `pfc_pm_start`, and `pfc_pm_stop`, and get the diff by running
+ * `pfc_pm_get`.
+ *
+ * UarfPmg: Often one is interested in measuring multiple PFCs at the same time. `UarfPmg`
+ * is a group of `UarfPm`s that are all measured together. TODO: not actually implemented.
+ *
+ * But better than the above method is to read the PFCs in ASM, as this allows fine-grain
+ * control over the section that is measured.
+ */
+
 #pragma once
 
 #include "log.h"
@@ -12,6 +33,11 @@
 #define UARF_LOG_TAG UARF_LOG_TAG_PFC
 #endif
 
+/*
+ * Performance Counter
+ *
+ * Interact with the performance counters at a "low-level".
+ */
 typedef struct UarfPfc UarfPfc;
 struct UarfPfc {
     uint64_t config;
@@ -38,6 +64,9 @@ union UarfPmuConfig {
 
 /*
  * Performance Measurement
+ *
+ * Provides a simpler interface. We can simply start and stop the measure, and get the
+ * count.
  */
 typedef struct UarfPm UarfPm;
 struct UarfPm {
@@ -51,7 +80,7 @@ struct UarfPm {
 /*
  * Performance Measurement Group
  *
- * To track multiple PFCs at the same time
+ * To track multiple Pms at the same time
  */
 typedef struct UarfPmg UarfPmg;
 struct UarfPmg {
@@ -71,7 +100,7 @@ __always_inline int uarf_perf_event_open(struct perf_event_attr *attr, pid_t pid
 /*
  * Initialize a PFC
  */
-int uarf_pfc_init(UarfPfc *pfc);
+int uarf_pfc_init(UarfPfc *pfc, uint64_t config1);
 
 /*
  * De-initialize a PFC
@@ -85,13 +114,14 @@ uint64_t uarf_pfc_read(UarfPfc *pfc);
 
 /*
  * Initialize a measurement for `config`.
+ *
+ * This also initializes the PFC.
  */
 static __always_inline int uarf_pm_init(UarfPm *pm, uint64_t config) {
     UARF_LOG_TRACE("(%p, %lu)\n", pm, config);
 
     memset(pm, 0, sizeof(UarfPm));
-    pm->pfc.config = config;
-    return uarf_pfc_init(&pm->pfc);
+    return uarf_pfc_init(&pm->pfc, config);
 }
 
 /*
