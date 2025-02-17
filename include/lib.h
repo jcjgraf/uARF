@@ -210,12 +210,12 @@ static __always_inline uint64_t uarf_rdpmc(uint32_t index) {
     return ((uint64_t) hi << 32) | lo;
 }
 
-static __always_inline void uarf_assert(bool cond) {
-    if (!(cond)) {
-        fprintf(stderr, "%s: Assert at %d failed: %s\n", __func__, __LINE__, STR((cond)));
-        exit(1);
+#define uarf_assert(cond)                                                                \
+    if (!(cond)) {                                                                       \
+        fprintf(stderr, "%s: Assert at %d failed: %s\n", __func__, __LINE__,             \
+                STR((cond)));                                                            \
+        exit(1);                                                                         \
     }
-}
 
 static __always_inline void uarf_bug(void) {
     fprintf(stderr, "Hit a bug\n");
