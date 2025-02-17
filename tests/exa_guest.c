@@ -33,6 +33,14 @@
 #include "uarf/psnip.h"
 #include "uarf/test.h"
 
+#define uarf_guest_set_rip(vcpu, target)                                                 \
+    ({                                                                                   \
+        struct kvm_regs regs;                                                            \
+        vcpu_regs_get(vcpu, &regs);                                                      \
+        regs.rip = (unsigned long) target;                                               \
+        vcpu_regs_set(vcpu, &regs);                                                      \
+    })
+
 #define NUM_ADDITINAL_PAGES 1
 
 uarf_psnip_declare_define(test_dst, "lfence\n"
@@ -195,6 +203,11 @@ int test(void)
 
 	// Guest supervisor and user
 	printf("run in guest supervisor and user\n");
+	run_vcpu(vcpu);
+
+	// Run the VM again by changing the IP
+	printf("Run guest again\n");
+	uarf_guest_set_rip(vcpu, guest_main);
 	run_vcpu(vcpu);
 
 	// cleanup

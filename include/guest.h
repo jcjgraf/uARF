@@ -93,3 +93,55 @@ static void __attribute__((used)) uarf_syscall_handler_return(void) {
     asm volatile("pushq %%rcx\n\t" ::: "memory");
     return;
 }
+
+#define uarf_guest_set_rip(vcpu, target)                                                 \
+    ({                                                                                   \
+        struct kvm_regs regs;                                                            \
+        vcpu_regs_get(vcpu, &regs);                                                      \
+        regs.rip = (unsigned long) target;                                               \
+        vcpu_regs_set(vcpu, &regs);                                                      \
+    })
+
+// static void uarf_guest_run(struct kvm_vcpu *vcpu)
+// {
+// 	struct ucall uc;
+//
+// 	while (true) {
+// 		vcpu_run(vcpu);
+//
+// 		switch (get_ucall(vcpu, &uc)) {
+// 		case UCALL_SYNC:
+// 			printf("Got sync signal\n");
+// 			printf("With %lu arguments\n", uc.args[1]);
+// 			break;
+// 		case UCALL_DONE:
+// 			printf("Got done signal\n");
+// 			return;
+// 		case UCALL_ABORT:
+// 			printf("Got abort signal\n");
+// 			REPORT_GUEST_ASSERT(uc);
+// 			break;
+// 		case UCALL_PRINTF:
+// 			printf("guest | %s", uc.buffer);
+// 			break;
+// 		case UCALL_NONE:
+// 			printf("Received none, of type: ");
+// 			switch (vcpu->run->exit_reason) {
+// 			case KVM_EXIT_SHUTDOWN:
+// 				printf("Shutdown\n");
+// 				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+// 				printf("Most likely something went wrong. VM quit\n");
+// 				printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+// 				return;
+// 			default:
+// 				printf("%s\nContinue\n",
+// 				       exit_reason_str(vcpu->run->exit_reason));
+// 				break;
+// 			}
+// 			break;
+// 		default:
+// 			TEST_ASSERT(false, "Unexpected exit: %s",
+// 				    exit_reason_str(vcpu->run->exit_reason));
+// 		}
+// 	}
+// }
