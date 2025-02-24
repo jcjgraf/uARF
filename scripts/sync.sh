@@ -129,8 +129,10 @@ function check_config_option() {
     log "Checking config option $1"
     local opt_name=$1
     local opt=${!opt_name} # Convert from string to variable
-    echo $opt_name
-    echo $opt
+
+    log $opt_name
+    log $opt
+
     if [ -v "$opt" ]; then
         echo "Missing config option \"$opt_name\""
         exit 5
@@ -146,15 +148,17 @@ check_config_option DST
 check_config_option WATCH
 
 # Composes the rsync command, based on the cli arguments
-function get_sync_cmd() {
+# Use nameref
+function get_rsync_args() {
     log "Composing sync command"
-    local cmd=(rsync --info=NAME -a --no-links)
+    local -n args=$1
+    args=("--info=NAME" "-a" "--no-links")
 
     if [ -n "$EXCLUDE_BASE" ]; then
         log "Adding base exclude"
         IFS=" " read -r -a exclude <<< "$EXCLUDE_BASE"
         for e in "${exclude[@]}"; do
-            cmd+=("--exclude \"$e\" ")
+            args+=("--exclude=$e")
         done
     fi
 
@@ -163,25 +167,24 @@ function get_sync_cmd() {
         if [ -n "$EXCLUDE_EXTENDED" ]; then
             IFS=" " read -r -a exclude <<< "$EXCLUDE_EXTENDED"
             for e in "${exclude[@]}"; do
-                cmd+=("--exclude \"$e\" ")
+                args+=("--exclude=$e")
             done
         fi
     fi
 
     if [ "$force" = true ]; then
         log "Force enabled"
-        cmd+=(--delete)
+        args+=("--delete")
     fi
 
-    cmd+=( "$SRC" )
-    cmd+=( "$DST" )
-
-    log "Complete CMD: \"${cmd[@]}\""
-
-    echo "${cmd[@]}"
+    args+=("$SRC")
+    args+=("$DST")
 }
 
-sync_cmd=$(get_sync_cmd)
+declare -p rsync_args
+get_rsync_args rsync_args
+
+log "rsync args:" `declare -p rsync_args`
 
 if [ "$daemon" = true ]; then
     # TODO: should be update this list inside loop?
@@ -190,12 +193,12 @@ if [ "$daemon" = true ]; then
         exit 6
     fi
     log "Watching files: \n$WATCH"
-    log "Running upon event: $sync_cmd"
+    log "Running upon event: rsync ${rsync_args[@]}"
 
     while true; do
         echo "==================="
         log "Start sync"
-        timeout $SYNC_TIMEOUT $sync_cmd
+        timeout $SYNC_TIMEOUT rsync "${rsync_args[@]}"
 
         retVal=$?
 
@@ -232,6 +235,6 @@ if [ "$daemon" = true ]; then
         fi
     done
 else
-    log "Running: $sync_cmd"
-    $sync_cmd
+    log "Running: rsync ${rsync_args[@]}"
+    rsync "${rsync_args[@]}"
 fi
