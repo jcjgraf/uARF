@@ -46,6 +46,7 @@ enum UarfLogTag {
     UARF_LOG_TAG_FR = BIT(6),
     UARF_LOG_TAG_PFC = BIT(7),
     UARF_LOG_TAG_GUEST = BIT(8),
+    UARF_LOG_TAG_APP = BIT(9),
     UARF_LOG_TAG_ALL = ULONG_MAX,
 };
 
@@ -57,7 +58,7 @@ extern UarfLogTag uarf_log_system_tag;
 
 // Default tag, overwrite in each file
 // Do not modifie here!
-#define UARF_LOG_TAG LOG_TAG_NONE
+#define UARF_LOG_TAG UARF_LOG_TAG_APP
 
 #define UARF_LOG_LOG(print_f, level, tag, prefix, color, format, ...)                    \
     ({                                                                                   \
