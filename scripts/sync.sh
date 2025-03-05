@@ -181,7 +181,7 @@ function get_rsync_args() {
     args+=("$DST")
 }
 
-declare -p rsync_args
+declare -a rsync_args
 get_rsync_args rsync_args
 
 log "rsync args:" `declare -p rsync_args`
