@@ -353,7 +353,7 @@ UARF_TEST_CASE_ARG(basic, arg)
 			.spec_prim_p = stub_main.addr,
 			.spec_dst_p_p = _ul(&stub_gadget.addr),
 			.fr_buf_p = fr.buf2.addr,
-			.secret = 0,
+			.secret = 2,
 			.hist = h1,
 		};
 
@@ -522,6 +522,7 @@ UARF_TEST_SUITE()
 
 	UarfJitaCtxt jita_main_call = uarf_jita_init();
 	UarfJitaCtxt jita_main_jmp = uarf_jita_init();
+	UarfJitaCtxt jita_main_ret = uarf_jita_init();
 	UarfJitaCtxt jita_gadget = uarf_jita_init();
 	UarfJitaCtxt jita_dummy = uarf_jita_init();
 
@@ -532,15 +533,15 @@ UARF_TEST_SUITE()
 	uarf_jita_push_psnip(&jita_main_call, &psnip_history);
 
 	uarf_jita_clone(&jita_main_call, &jita_main_jmp);
+	uarf_jita_clone(&jita_main_call, &jita_main_ret);
 
 	uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
-	uarf_jita_push_psnip(&jita_main_call, &psnip_src_call_ind);
-
 	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
-	uarf_jita_push_psnip(&jita_main_jmp, &psnip_src_jmp_ind);
+	uarf_jita_push_psnip(&jita_main_ret, &psnip_src_ret);
 
 	uarf_jita_push_psnip(&jita_main_call, &psnip_ret);
 	uarf_jita_push_psnip(&jita_main_jmp, &psnip_ret);
+	uarf_jita_push_psnip(&jita_main_ret, &psnip_ret);
 
 	uarf_jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
 	uarf_jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
@@ -599,17 +600,18 @@ UARF_TEST_SUITE()
 	// };
 
 	// clang-format off
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
-
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
-
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
-
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
+	/// jmp*
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
 
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_jmp);
@@ -623,8 +625,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
 
-	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, false, jita_main_jmp);
-	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, true, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, false, jita_main_jmp);
+	data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, true, jita_main_jmp);
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
@@ -647,7 +649,8 @@ UARF_TEST_SUITE()
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_jmp);
 
-
+	
+	/// Call*
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_call);
 	//
@@ -695,6 +698,56 @@ UARF_TEST_SUITE()
 	//
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_call);
 	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_call);
+
+
+	/// Ret
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_ret);
+
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_ret);
+
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, HOST_SUPERVISOR, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_USER, GUEST_SUPERVISOR, true, jita_main_ret);
+
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, HOST_SUPERVISOR, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_USER, true, jita_main_ret);
+	//
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, false, jita_main_ret);
+	// data[data_i++] = CREATE_TCD(GUEST_SUPERVISOR, GUEST_SUPERVISOR, true, jita_main_ret);
 	// clang-format on
 
 	for (size_t i = 0; i < data_i; i++) {

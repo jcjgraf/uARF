@@ -21,10 +21,10 @@
  * Clobbers: RDI, RSI, R8
  */
 UARF_SNIP_START src_call_ind
-    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
@@ -36,10 +36,10 @@ UARF_SNIP_START src_call_ind
 UARF_SNIP_END src_call_ind
 
 UARF_SNIP_START src_call_ind_no_ret
-    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
@@ -55,10 +55,10 @@ UARF_SNIP_END src_call_ind_no_ret
  * Clobbers: RDI, RSI, R8
  */
 UARF_SNIP_START src_jmp_ind
-    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
     movq $0, %rdx                                       // SIZE: 7
-    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
@@ -67,17 +67,72 @@ UARF_SNIP_START src_jmp_ind
 UARF_SNIP_END src_jmp_ind
 
 UARF_SNIP_START src_jmp_ind_no_ret
-    movq UARF_DATA__fr_buf_p(%rcx), %rdi                     // SIZE: 4
-    movq UARF_DATA__secret(%rcx), %rsi                       // SIZE: 4
-    lea 25(%rip), %rdx                      // SIZE: 7 Address of end of block (=> return address)
-    pushq %rdx                              // SIZE: 1
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
+    lea 25(%rip), %rdx                                  // SIZE: 7 Address of end of block (=> return address)
+    pushq %rdx                                          // SIZE: 1
     movq $0, %rdx                                       // SIZE: 7
-    movq UARF_DATA__spec_dst_p_p(%rcx), %r8                  // SIZE: 4
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
     clflush (%r8)                                       // SIZE: 4
     mfence // Keep here for now. Creates a new BB       // SIZE: 3
     lfence                                              // SIZE: 3
     jmp *(%r8) // Calls return                          // SIZE: 3
 UARF_SNIP_END src_jmp_ind_no_ret
+
+/*
+ * Victim branch source using an return (no RSB underflow or anything)
+ * Regs:
+ * - RCX: Pointer to SpecData struct
+ * Stack:
+ * - Return address
+ * Clobbers: RDI, RSI, R8
+ */
+UARF_SNIP_START src_ret
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
+    movq $0, %rdx                                       // SIZE: 7
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
+    pushq (%r8)                                         // SIZE: 3
+    clflush (%rsp)                                      // SIZE: 4
+    mfence // Keep here for now. Creates a new BB       // SIZE: 3
+    lfence                                              // SIZE: 3
+    ret // Calls return                                 // SIZE: 1
+    int3
+UARF_SNIP_END src_ret
+
+UARF_SNIP_START src_ret_no_ret
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
+    lea 26(%rip), %rdx                                  // SIZE: 7 Address of end of block (=> return address)
+    pushq %rdx                                          // SIZE: 1
+    movq $0, %rdx                                       // SIZE: 7
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
+    pushq (%r8)                                         // SIZE: 3
+    clflush (%rsp)                                      // SIZE: 4
+    mfence // Keep here for now. Creates a new BB       // SIZE: 3
+    lfence                                              // SIZE: 3
+    ret                                                 // SIZE: 1
+UARF_SNIP_END src_ret_no_ret
+
+/*
+ * Victim branch source using an return, utilizing the RSB to make a prediction
+ * Regs:
+ * - RCX: Pointer to SpecData struct
+ * Stack:
+ * - Return address
+ * Clobbers: RDI, RSI, R8
+ */
+UARF_SNIP_START src_ret_rsp
+    movq UARF_DATA__fr_buf_p(%rcx), %rdi                // SIZE: 4
+    movq UARF_DATA__secret(%rcx), %rsi                  // SIZE: 4
+    movq $0, %rdx                                       // SIZE: 7
+    movq UARF_DATA__spec_dst_p_p(%rcx), %r8             // SIZE: 4
+    movq (%r8), %r8
+    mfence // Keep here for now. Creates a new BB       // SIZE: 3
+    lfence                                              // SIZE: 3
+    call *%r8                                           // SIZE: 3
+    // Place gadget here
+UARF_SNIP_END src_ret_rsp
 
 /*
  * Gadget Code, leaking the secret when executed speculatively
