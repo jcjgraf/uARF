@@ -16,3 +16,5 @@ scripts/initramfs
 scripts/bzImage
 
 compile_commands*.json
+
+virt2phys

@@ -41,3 +41,5 @@ static inline void *uarf_malloc_or_die(size_t size) {
 static inline void uarf_free_or_die(void *ptr) {
     free(ptr);
 }
+
+uint64_t uarf_va_to_pa(uint64_t va, uint64_t pid);
