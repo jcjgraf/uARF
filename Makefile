@@ -39,6 +39,10 @@ OBJS += $(ASM_SOURCES:%.S=%.o)
 LIBRARY_NAME := uarf
 LIBRARY := lib$(LIBRARY_NAME).a
 
+LIBRARY_PREFIX = /usr/local
+LIBRARY_INCLUDE_DIR = $(LIBRARY_PREFIX)/include/$(LIBRARY_NAME)
+LIBRARY_LIB_DIR = $(LIBRARY_PREFIX)/lib
+
 # LDFLAGS := -L $(uARF_ROOT) -l$(LIBRARY_NAME)
 
 ifneq ($(TESTCASE),)
@@ -93,3 +97,18 @@ kmods:
 kmods_clean:
 	@echo "Clean KMOD"
 	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR) clean
+
+# Install library
+.PHONY: install
+install: $(LIBRARY) uninstall
+	@echo "Install library"
+	$(VERBOSE) mkdir -p $(LIBRARY_LIB_DIR) $(LIBRARY_INCLUDE_DIR)
+	$(VERBOSE) cp $(LIBRARY) $(LIBRARY_LIB_DIR)/
+	$(VERBOSE) cp -r include/* $(LIBRARY_INCLUDE_DIR)/
+
+# Uninstall library
+.PHONY: uninstall
+uninstall:
+	@echo "Uninstall library"
+	$(VERBOSE) rm -f $(LIBRARY_LIB_DIR)/$(LIBRARY)
+	$(VERBOSE) rm -rf $(LIBRARY_INCLUDE_DIR)
