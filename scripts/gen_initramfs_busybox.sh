@@ -37,6 +37,12 @@ mount -t proc       proc        /proc
 mount -t sysfs      sysfs       /sys
 mount -t tmpfs      tmpfs       /tmp
 mount -t 9p         host0       /mnt/host0  -o trans=virtio,version=9p2000.L
+echo "root:x:0:0:root:/root:/bin/sh" > /etc/passwd
+echo "root::0:0:99999:7:::" > /etc/shadow
+echo "root:x:0:" > /etc/group
+chmod 644 /etc/passwd
+chmod 640 /etc/shadow
+chmod 644 /etc/group
 setsid cttyhack sh
 exec /bin/sh
 EOF
