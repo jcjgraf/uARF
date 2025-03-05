@@ -10,6 +10,7 @@
 #define UARF_IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
 #define UARF_IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
 #define UARF_IOCTL_CPUID     _IOWR('m', 5, UarfPiReqCpuid)
+#define UARF_IOCTL_VMMCALL   _IOWR('m', 6, uint32_t)
 
 // For rdmsr/rwmsr
 typedef struct UarfPiReqMsr UarfPiReqMsr;
@@ -24,6 +25,11 @@ struct UarfPiReqCpuid {
     uint32_t ebx;
     uint32_t ecx; // Sub-leaf
     uint32_t edx;
+};
+
+typedef struct UarfPiReqVmmcall UarfPiReqVmmcall;
+struct UarfPiReqVmmcall {
+    uint64_t eax;
 };
 
 static int fd_pi;
@@ -91,5 +97,12 @@ static __always_inline void uarf_pi_cpuid(uint32_t leaf, uint32_t *eax, uint32_t
     }
     if (edx) {
         *edx = req.edx;
+    }
+}
+
+static __always_inline void uarf_pi_vmmcall(uint32_t nr) {
+    uint32_t a = nr;
+    if (ioctl(fd_pi, UARF_IOCTL_VMMCALL, &a) < 0) {
+        perror("Failed to vmmcall\n");
     }
 }

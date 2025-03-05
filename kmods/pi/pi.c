@@ -97,12 +97,25 @@ static long uarf_pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg
         }
         break;
     }
+    case UARF_IOCTL_VMMCALL: {
+        uint32_t nr;
+        if (copy_from_user(&nr, (uint32_t __user *) arg, sizeof(nr))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
+        pr_debug("Type VMMCALL nr: %d\n", nr);
+
+        asm volatile("vmmcall" ::"eax"(nr));
+        break;
+    }
     default: {
         pr_warn("Unsupported command encountered: %u\n", cmd);
         pr_debug("RDMSR: %lu\n", UARF_IOCTL_RDMSR);
         pr_debug("WRMSR: %lu\n", UARF_IOCTL_WRMSR);
         pr_debug("INVLPG: %lu\n", UARF_IOCTL_INVLPG);
         pr_debug("CPUID: %lu\n", UARF_IOCTL_CPUID);
+        pr_debug("VMMCALL: %lu\n", UARF_IOCTL_VMMCALL);
         return -EINVAL;
     }
     }

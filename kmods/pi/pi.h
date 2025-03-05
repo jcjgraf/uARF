@@ -7,6 +7,7 @@
 #define UARF_IOCTL_INVLPG    _IOWR('m', 3, uint64_t)
 #define UARF_IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
 #define UARF_IOCTL_CPUID     _IOWR('m', 5, UarfPiReqCpuid)
+#define UARF_IOCTL_VMMCALL   _IOWR('m', 6, uint32_t)
 
 // For rdmsr/rwmsr
 typedef struct UarfPiReqMsr UarfPiReqMsr;
