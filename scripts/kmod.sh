@@ -10,7 +10,6 @@ function usage() {
     echo ""
     echo "Options"
     echo "  -t, --tmp       Copy module to /tmp and load from there."
-    echo "  -s, --sudo      Use sudo for rmmod and insmod."
     echo "  -h, --help      Display this help message."
     echo "  -v, --verbose   Show verbose output."
     echo ""
@@ -27,7 +26,6 @@ function log_err() {
 }
 
 use_tmp=false
-use_sudo=false
 verbose=false
 module_name=
 
@@ -39,10 +37,6 @@ while [ "$#" -gt 0 ]; do
             ;;
         -t|--tmp)
             use_tmp=true
-            shift
-            ;;
-        -s|--sudo)
-            use_sudo=true
             shift
             ;;
         -v|--verbose)
@@ -85,23 +79,28 @@ if [ "$use_tmp" = true ]; then
     module_path=/tmp/$module_file
 fi
 
-prefix=
-if [ "$use_sudo" = true ]; then
-    log "Use sudo for (re)loading the module"
-    prefix=sudo
-fi
-
-if lsmod | grep -q "$module_name"; then
+if lsmod | grep -qE "^$module_name\s+"; then
     log "Module '$module_name' is loaded. Reloading..."
-    eval "$prefix rmmod $module_name"
-    eval "$prefix insmod $module_path"
+    rmmod $module_name
+    out=$?
+    if [ $out -ne 0 ]; then
+        log_err "Removing module"
+        exit 1
+    fi
 else
     log "Module '$module_name' is not loaded. Loading..."
-    eval "$prefix insmod $module_path"
 fi
 
-if lsmod | grep -q "$module_name"; then
+insmod $module_path
+out=$?
+if [ $out -ne 0 ]; then
+    log_err "Inserting module"
+    exit 1
+fi
+
+if lsmod | grep -qE "^$module_name\s+"; then
     echo "Module $module_name has been (re)loaded"
 else
-    echo "ERROR: FAILED TO (RE)LOAD MODULE $module_name"
+    log_err "ERROR: FAILED TO (RE)LOAD MODULE $module_name"
+    exit 1
 fi
