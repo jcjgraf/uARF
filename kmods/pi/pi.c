@@ -109,6 +109,41 @@ static long uarf_pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg
         asm volatile("vmmcall" ::"eax"(nr));
         break;
     }
+    case UARF_IOCTL_OUT: {
+        pr_debug("Type OUT\n");
+        struct UarfPiReqOut req;
+        if (copy_from_user(&req, (uint64_t __user *) arg, sizeof(req))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
+        asm volatile("outl %0, %1" ::"a"(req.value), "Nd"(req.port));
+
+        break;
+    }
+    case UARF_IOCTL_OUTS: {
+        pr_debug("Type OUTS\n");
+        struct UarfPiReqOuts req;
+        if (copy_from_user(&req, (uint64_t __user *) arg, sizeof(req))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+        char *buf = (char *) kzalloc(req.len, GFP_KERNEL);
+        if (!buf) {
+            pr_warn("Failed to allocate memory\n");
+            return -EINVAL;
+        }
+        if (copy_from_user(buf, (uint64_t __user *) req.buf, req.len * sizeof(char))) {
+            pr_warn("Failed to copy data from user\n");
+            return -EINVAL;
+        }
+
+        pr_debug("Got string %s to OUTS\n", buf);
+
+        asm volatile("rep; outsb" : "+S"(buf), "+c"(req.len) : "d"(req.port));
+
+        break;
+    }
     default: {
         pr_warn("Unsupported command encountered: %u\n", cmd);
         pr_debug("RDMSR: %lu\n", UARF_IOCTL_RDMSR);
@@ -116,6 +151,7 @@ static long uarf_pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg
         pr_debug("INVLPG: %lu\n", UARF_IOCTL_INVLPG);
         pr_debug("CPUID: %lu\n", UARF_IOCTL_CPUID);
         pr_debug("VMMCALL: %lu\n", UARF_IOCTL_VMMCALL);
+        pr_debug("OUT: %lu\n", UARF_IOCTL_OUT);
         return -EINVAL;
     }
     }

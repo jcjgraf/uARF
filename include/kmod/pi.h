@@ -11,6 +11,8 @@
 #define UARF_IOCTL_FLUSH_TLB _IOWR('m', 4, uint64_t)
 #define UARF_IOCTL_CPUID     _IOWR('m', 5, UarfPiReqCpuid)
 #define UARF_IOCTL_VMMCALL   _IOWR('m', 6, uint32_t)
+#define UARF_IOCTL_OUT       _IOWR('m', 7, UarfPiReqOut)
+#define UARF_IOCTL_OUTS      _IOWR('m', 8, UarfPiReqOuts)
 
 // For rdmsr/rwmsr
 typedef struct UarfPiReqMsr UarfPiReqMsr;
@@ -27,9 +29,17 @@ struct UarfPiReqCpuid {
     uint32_t edx;
 };
 
-typedef struct UarfPiReqVmmcall UarfPiReqVmmcall;
-struct UarfPiReqVmmcall {
-    uint64_t eax;
+typedef struct UarfPiReqOut UarfPiReqOut;
+struct UarfPiReqOut {
+    uint32_t value;
+    uint16_t port;
+};
+
+typedef struct UarfPiReqOuts UarfPiReqOuts;
+struct UarfPiReqOuts {
+    char *buf;
+    size_t len;
+    uint16_t port;
 };
 
 static int fd_pi;
@@ -104,5 +114,19 @@ static __always_inline void uarf_pi_vmmcall(uint32_t nr) {
     uint32_t a = nr;
     if (ioctl(fd_pi, UARF_IOCTL_VMMCALL, &a) < 0) {
         perror("Failed to vmmcall\n");
+    }
+}
+
+static __always_inline void uarf_pi_out(uint32_t value, uint16_t port) {
+    UarfPiReqOut req = {.value = value, .port = port};
+    if (ioctl(fd_pi, UARF_IOCTL_OUT, &req) < 0) {
+        perror("Failed to out\n");
+    }
+}
+
+static __always_inline void uarf_pi_outs(char *buf, size_t len, uint16_t port) {
+    UarfPiReqOuts req = {.buf = buf, .len = len, .port = port};
+    if (ioctl(fd_pi, UARF_IOCTL_OUTS, &req) < 0) {
+        perror("Failed to outs\n");
     }
 }
