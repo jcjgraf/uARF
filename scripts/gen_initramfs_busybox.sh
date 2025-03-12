@@ -14,6 +14,7 @@ INITRAMFS_CPIO_GZ_PATH="${CWD}/initramfs.cpio.gz"
 BUSYBOX_PATH="${CWD}/busybox"
 
 INIT="/bin/sh"
+HOST_CWD="/"
 
 function log() {
     if [ "$verbose" = true ]; then
@@ -33,17 +34,19 @@ function usage() {
     echo "   -o, --out <DIR>        Path to store the initramfs.cpio.gz (default: $INITRAMFS_CPIO_GZ_PATH)"
     echo "   -f, --force            Force recreate initramfs structure"
     echo "   -s, --share            Mount p9 share"
+    echo "   -w, --cwd <DIR>        Working directory (default: $HOST_CWD)"
     echo "   -h, --help             Display this help message."
     echo "   -v, --verbose          Display verbose output."
 }
 
 out=$INITRAMFS_CPIO_GZ_PATH
 init=
+host_cwd=
 force=false
 verbose=false
 share=false
 
-PARSED_ARGUMENTS=$(getopt --name "$0" --options=i:o:fshv --longoptions init:,out:,force,share,help,verbose -- "$@")
+PARSED_ARGUMENTS=$(getopt --name "$0" --options=i:o:fsw:hv --longoptions init:,out:,force,share,cwd:help,verbose -- "$@")
 VALID_ARGUMENTS=$?
 if [ "$VALID_ARGUMENTS" != "0" ]; then
     echo "Invalid argument"
@@ -68,6 +71,10 @@ while true; do
         -s|--share)
             share=true
             shift
+            ;;
+        -w|--cwd)
+            host_cwd="$2"
+            shift 2
             ;;
         -v|--verbose)
             verbose=true
@@ -102,8 +109,6 @@ if [ "$force" = true ]; then
     rm -rf $INITRAMFS_DIR
 fi
 
-log "init: $init"
-
 if [ ! -d $INITRAMFS_DIR ]; then
     # Create initramfs file structure
     log "Creating initramfs file structure at $INITRAMFS_DIR"
@@ -115,7 +120,7 @@ if [ ! -d $INITRAMFS_DIR ]; then
     chmod +x busybox
     ln -s busybox mount
     ln -s busybox sh
-    mount_p9=""
+
     if [ -n "$init" ]; then
         cp $init user_init
         chmod +x user_init
@@ -123,11 +128,20 @@ if [ ! -d $INITRAMFS_DIR ]; then
     else
         init="setsid cttyhack $INIT"
     fi
-    cd ..
 
+    cwd=""
+    if [ -n "$host_cwd" ]; then
+        cwd="cd $host_cwd"
+    else
+        cwd="cd $HOST_CWD"
+    fi
+
+    mount_p9=""
     if [ "$share" = true ]; then
         mount_p9="mount -t 9p         host0       /mnt/host0  -o trans=virtio,version=9p2000.L"
     fi
+
+    cd ..
 
     # Create init script
     echo "Creating init file"
@@ -145,6 +159,7 @@ echo "root:x:0:" > /etc/group
 chmod 644 /etc/passwd
 chmod 640 /etc/shadow
 chmod 644 /etc/group
+$cwd
 $init
 EOF
     chmod +x init
