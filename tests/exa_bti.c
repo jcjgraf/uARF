@@ -26,6 +26,8 @@
 #include "spec_lib.h"
 #include "test.h"
 
+#include <sys/mman.h>
+
 #ifdef UARF_LOG_TAG
 #undef UARF_LOG_TAG
 #define UARF_LOG_TAG UARF_LOG_TAG_TEST
@@ -99,9 +101,10 @@ UARF_TEST_CASE_ARG(basic, arg) {
                              : "rax", "rdx", "rdi", "rsi", "r8", "memory");
             }
 
+            // uarf_assert(!mprotect(stub_gadget.base_ptr, stub_gadget.size, PROT_READ | PROT_WRITE));
             uarf_fr_flush(&fr);
             uarf_clflush_spec_dst(&signal_data);
-            uarf_invlpg_spec_dst(&signal_data);
+            // uarf_invlpg_spec_dst(&signal_data);
             uarf_prefetcht0(&train_data);
 
             // TODO: disable interrupts and preemption
@@ -114,6 +117,7 @@ UARF_TEST_CASE_ARG(basic, arg) {
                          : "rax", "rdx", "rdi", "rsi", "r8", "memory");
 
             uarf_fr_reload_binned(&fr, r);
+            // uarf_assert(!mprotect(stub_gadget.base_ptr, stub_gadget.size, PROT_READ | PROT_WRITE | PROT_EXEC));
         }
         uarf_jita_deallocate(data->jita_main, &stub_main);
         uarf_jita_deallocate(data->jita_gadget, &stub_gadget);
