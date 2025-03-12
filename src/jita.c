@@ -1,5 +1,5 @@
 #include "jita.h"
-#include "errno.h"
+#include "errnum.h"
 #include "lib.h"
 
 /**

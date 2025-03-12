@@ -1,5 +1,5 @@
 #include "vsnip.h"
-#include "errno.h"
+#include "errnum.h"
 #include "lib.h"
 #include "log.h"
 
