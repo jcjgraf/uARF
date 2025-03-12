@@ -115,6 +115,31 @@ UARF_TEST_CASE(flush_reload_small) {
     UARF_TEST_PASS();
 }
 
+// Flush and reload side channel with 256 slot buffer
+UARF_TEST_CASE(flush_reload_large) {
+
+    UarfFrConfig conf = uarf_fr_init(256, 1, NULL);
+    uarf_fr_reset(&conf);
+
+#define NUM_RUNDS 10
+    for (size_t i = 0; i < NUM_RUNDS; i++) {
+        uarf_fr_flush(&conf);
+        if (i % 2) {
+            uarf_mfence();
+            uarf_lfence();
+            *(volatile uint8_t *) (conf.buf.addr);
+        }
+        uarf_fr_reload(&conf);
+    }
+
+    UARF_LOG_DEBUG("FR Buffer\n");
+    uarf_fr_print(&conf);
+
+    uarf_fr_deinit(&conf);
+
+    UARF_TEST_PASS();
+}
+
 // Do the flush and reload buffer entries have the correct values?
 UARF_TEST_CASE(buffer_values) {
 
@@ -163,6 +188,7 @@ UARF_TEST_SUITE() {
     UARF_TEST_RUN_CASE(case_flush);
     UARF_TEST_RUN_CASE(flush_reload);
     UARF_TEST_RUN_CASE(flush_reload_small);
+    UARF_TEST_RUN_CASE(flush_reload_large);
     UARF_TEST_RUN_CASE(buffer_values);
     UARF_TEST_RUN_CASE(flush_reload_bin);
 
