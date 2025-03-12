@@ -54,7 +54,7 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
 
 // Initialize the flush and reload buffer, its dummy version  and history buffer.
 // Needs to be done from kernel space
-UarfFrConfig uarf_fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map) {
+UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map) {
     UARF_LOG_TRACE("(%u, %u, %p)\n", num_slots, num_bins, bin_map);
 
     // Assert nm_slots is power of two. Fr_reload_range only works for 2^n

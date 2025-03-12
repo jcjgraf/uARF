@@ -75,7 +75,7 @@ struct UarfFrConfig {
         uintptr_t res_addr;
     };
     // Number of slots (entries) in the buffer
-    uint8_t num_slots;
+    uint16_t num_slots;
     // Number of bins to distribute the
     uint8_t num_bins;
     // Cache hit/miss threshold
@@ -96,7 +96,7 @@ static __always_inline void uarf_fr_reset(UarfFrConfig *conf) {
 void uarf_fr_flush(UarfFrConfig *conf);
 void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration);
 
-UarfFrConfig uarf_fr_init(uint8_t num_slots, uint8_t num_bins, size_t *bin_map);
+UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map);
 
 void uarf_fr_deinit(UarfFrConfig *conf);
 void uarf_fr_print(UarfFrConfig *conf);
