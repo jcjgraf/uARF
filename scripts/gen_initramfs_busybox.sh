@@ -8,13 +8,15 @@ BB_VER="1.31.0"
 
 CWD=$(pwd)
 
+# Tmp file to store initramfs structure
 INITRAMFS_DIR="${CWD}/initramfs"
-INITRAMFS_CPIO_GZ_PATH="${CWD}/initramfs.cpio.gz"
+
+INITRAMFS_CPIO_GZ_FILE="initramfs.cpio.gz"
 
 BUSYBOX_PATH="${CWD}/busybox"
 
 INIT="/bin/sh"
-HOST_CWD="/"
+GUEST_CWD="/"
 
 function log() {
     if [ "$verbose" = true ]; then
@@ -26,25 +28,25 @@ function log_err() {
     printf "$(date +"%H:%M:%S") ERROR: $* \n" >&2
 }
 
+out=$CWD
+init=
+guest_cwd=$GUEST_CWD
+force=false
+verbose=false
+share=false
+
 function usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "   -i, --init <INIT>      Init executable to run (default: $INIT)"
-    echo "   -o, --out <DIR>        Path to store the initramfs.cpio.gz (default: $INITRAMFS_CPIO_GZ_PATH)"
+    echo "   -o, --out <DIR>        Path to store the initramfs.cpio.gz (default: $out)"
     echo "   -f, --force            Force recreate initramfs structure"
     echo "   -s, --share            Mount p9 share"
-    echo "   -w, --cwd <DIR>        Working directory (default: $HOST_CWD)"
+    echo "   -w, --cwd <DIR>        Working directory to use on the guest (default: $guest_cwd)"
     echo "   -h, --help             Display this help message."
     echo "   -v, --verbose          Display verbose output."
 }
-
-out=$INITRAMFS_CPIO_GZ_PATH
-init=
-host_cwd=
-force=false
-verbose=false
-share=false
 
 PARSED_ARGUMENTS=$(getopt --name "$0" --options=i:o:fsw:hv --longoptions init:,out:,force,share,cwd:help,verbose -- "$@")
 VALID_ARGUMENTS=$?
@@ -73,7 +75,7 @@ while true; do
             shift
             ;;
         -w|--cwd)
-            host_cwd="$2"
+            guest_cwd="$2"
             shift 2
             ;;
         -v|--verbose)
@@ -129,12 +131,7 @@ if [ ! -d $INITRAMFS_DIR ]; then
         init="setsid cttyhack $INIT"
     fi
 
-    cwd=""
-    if [ -n "$host_cwd" ]; then
-        cwd="cd $host_cwd"
-    else
-        cwd="cd $HOST_CWD"
-    fi
+    cwd="cd $guest_cwd"
 
     mount_p9=""
     if [ "$share" = true ]; then
@@ -159,6 +156,9 @@ echo "root:x:0:" > /etc/group
 chmod 644 /etc/passwd
 chmod 640 /etc/shadow
 chmod 644 /etc/group
+echo "nameserver 10.0.2.3" > /etc/resolv.conf
+ifconfig eth0 10.0.2.15
+route add default gw 10.0.2.2
 $cwd
 $init
 EOF
@@ -168,6 +168,6 @@ fi
 # Create gz compressed cpio archive
 echo "Creating initramfs.cpio.gz"
 cd "${INITRAMFS_DIR}"
-find . | cpio -o -H newc | gzip > "${INITRAMFS_CPIO_GZ_PATH}"
+find . | cpio -o -H newc | gzip > "${out}/${INITRAMFS_CPIO_GZ_FILE}"
 
 cd "${CWD}"
