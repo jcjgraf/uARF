@@ -6,6 +6,22 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define min(a, b)                                                                        \
+    ({                                                                                   \
+        const typeof(a) _a = (a);                                                        \
+        const typeof(b) _b = (b);                                                        \
+        _a < _b ? _a : _b;                                                               \
+    })
+
+#define max(a, b)                                                                        \
+    ({                                                                                   \
+        const typeof(a) _a = (a);                                                        \
+        const typeof(b) _b = (b);                                                        \
+        _a > _b ? _a : _b;                                                               \
+    })
+
+#define ROUND_2MB_UP(x) (((x) + 0x1fffffUL) & ~0x1fffffUL)
+
 static __always_inline void uarf_sfence(void) {
     asm volatile("sfence" ::: "memory");
 }

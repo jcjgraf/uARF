@@ -115,7 +115,7 @@ UARF_TEST_CASE(flush_reload_small) {
     UARF_TEST_PASS();
 }
 
-// Flush and reload side channel with 256 slot buffer
+// Flush and reload side channel with 256 slot buffer (to used to leak a full byte)
 UARF_TEST_CASE(flush_reload_large) {
 
     UarfFrConfig conf = uarf_fr_init(256, 1, NULL);
@@ -125,9 +125,33 @@ UARF_TEST_CASE(flush_reload_large) {
     for (size_t i = 0; i < NUM_RUNDS; i++) {
         uarf_fr_flush(&conf);
         if (i % 2) {
-            uarf_mfence();
-            uarf_lfence();
-            *(volatile uint8_t *) (conf.buf.addr);
+            *(volatile uint8_t *) (conf.buf.addr + 3 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 13 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 23 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 33 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 43 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 53 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 63 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 73 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 83 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 93 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 103 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 113 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 123 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 133 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 143 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 153 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 163 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 173 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 173 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 183 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 193 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 203 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 213 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 223 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 233 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 243 * FR_STRIDE);
+            *(volatile uint8_t *) (conf.buf.addr + 253 * FR_STRIDE);
         }
         uarf_fr_reload(&conf);
     }
@@ -157,7 +181,7 @@ UARF_TEST_CASE(buffer_values) {
 
 UARF_TEST_CASE(flush_reload_bin) {
 
-    UarfFrConfig conf = uarf_fr_init(32, 6, (size_t[]) {0, 1, 2, 3, 5, 10});
+    UarfFrConfig conf = uarf_fr_init(64, 6, (size_t[]) {0, 1, 2, 3, 5, 10});
     uarf_fr_reset(&conf);
 
 #define SECRET    1

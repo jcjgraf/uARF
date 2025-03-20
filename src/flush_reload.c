@@ -42,7 +42,9 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
     // Should be completely unrolled to prevent data triggering the data cache prefetcher
 #pragma GCC unroll 1024
     for (uint64_t k = 0; k < conf->num_slots; ++k) {
-        size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
+        // NOTE: If there are many false positives in the result, play with this function
+        // size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
+        size_t buf_i = (k * 421 + 9) & (conf->num_slots - 1);
         void *p = conf->buf.handle_p + FR_STRIDE * buf_i;
         uint64_t dt = uarf_get_access_time(p);
         if (dt < conf->thresh) {
@@ -71,7 +73,7 @@ UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map)
         .num_slots = num_slots,
         .num_bins = num_bins,
         .thresh = FR_THRESH,
-        .buf_size = num_slots * FR_STRIDE + FR_OFFSET,
+        .buf_size = ROUND_2MB_UP(num_slots * FR_STRIDE + 0x1000ul),
         .res_size = num_slots * num_bins * sizeof(uint32_t),
     };
 
@@ -82,6 +84,9 @@ UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map)
     uarf_map_or_die(conf.buf.base_p, conf.buf_size);
     uarf_map_or_die(conf.buf2.base_p, conf.buf_size);
     uarf_map_or_die(conf.res_p, conf.res_size);
+
+    madvise(conf.buf.p, conf.buf_size, MADV_HUGEPAGE);
+    madvise(conf.buf2.p, conf.buf_size, MADV_HUGEPAGE);
 
     // Ensure it is not zero-page backed
     for (size_t i = 0; i < conf.num_slots; i++) {
