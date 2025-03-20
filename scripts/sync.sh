@@ -11,7 +11,7 @@ exec 3>&1
 
 # Terminate the synchronization after time time
 # Done because rsync somehow gets blocked sometimes
-SYNC_TIMEOUT=20
+SYNC_TIMEOUT=10
 
 LONGOPTS=all,daemon,force,verbose,help
 OPTIONS=adfvh
