@@ -110,6 +110,15 @@ void uarf_fr_deinit(UarfFrConfig *conf) {
     uarf_unmap_or_die(conf->res_p, conf->res_size);
 }
 
+uint64_t uarf_fr_num_hits(UarfFrConfig *conf) {
+    uarf_assert(conf->num_bins == 1); // Only works with 1 bin for now
+    uint64_t sum = 0;
+    for (size_t i = 0; i < conf->num_slots; i++) {
+        sum += conf->res_p[i];
+    }
+    return sum;
+}
+
 void uarf_fr_print(UarfFrConfig *conf) {
     UARF_LOG_TRACE("(%p)\n", conf);
 

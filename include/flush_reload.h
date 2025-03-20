@@ -99,6 +99,7 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration);
 UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map);
 
 void uarf_fr_deinit(UarfFrConfig *conf);
+uint64_t uarf_fr_num_hits(UarfFrConfig *conf);
 void uarf_fr_print(UarfFrConfig *conf);
 
 static __always_inline void uarf_fr_reload(UarfFrConfig *conf) {
