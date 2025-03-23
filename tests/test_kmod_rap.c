@@ -7,6 +7,7 @@
 #include "compiler.h"
 #include "kmod/rap.h"
 #include "test.h"
+#include "lib.h"
 
 #define ROUNDS 100
 
@@ -41,9 +42,25 @@ UARF_TEST_CASE(argument) {
     UARF_TEST_PASS();
 }
 
+static uint64_t return_value_run(void *data) {
+    return uarf_read_cr3();
+}
+
+UARF_TEST_CASE(return_value) {
+    uarf_rap_init();
+
+    uint64_t ret = uarf_rap_call(return_value_run, NULL);
+    printf("Got cr3: 0x%lx\n", ret);
+    UARF_TEST_ASSERT(ret);
+
+    uarf_rap_deinit();
+    UARF_TEST_PASS();
+}
+
 UARF_TEST_SUITE() {
     UARF_TEST_RUN_CASE(basic);
     UARF_TEST_RUN_CASE(argument);
+    UARF_TEST_RUN_CASE(return_value);
 
     return 0;
 }

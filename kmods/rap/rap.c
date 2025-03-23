@@ -39,7 +39,7 @@ static long uarf_rap_ioctl(struct file *file, unsigned int cmd, unsigned long ar
         }
         req = (struct UarfRapRequest *) arg;
 
-        req->func(req->data);
+        req->return_data = req->func(req->data);
 
         if (cr4_mod) {
             asm volatile("mov %0,%%cr4" : "+r"(cr4) : : "memory");

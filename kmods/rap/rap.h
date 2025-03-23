@@ -7,9 +7,10 @@
 typedef struct UarfRapRequest UarfRapRequest;
 struct UarfRapRequest {
     union {
-        void (*func)(void *);
+        uint64_t (*func)(void *);
         void *ptr;
         uint64_t addr;
     };
     void *data;
+    uint64_t return_data;
 };
