@@ -28,7 +28,7 @@ static inline void _uarf_write_cr3(unsigned long cr3) {
 }
 
 static long uarf_pi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-    pr_info("PI IOCTL received\n");
+    pr_debug("PI IOCTL received\n");
 
     switch (cmd) {
     case UARF_IOCTL_RDMSR: {
