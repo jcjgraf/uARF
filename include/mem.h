@@ -19,7 +19,14 @@ static inline void uarf_map_or_die(void *addr_p, size_t size) {
         UARF_LOG_ERROR("Failed to map %luB at 0x%lx\n", size, _ul(addr_p));
         exit(1);
     };
-    // TODO: use madadise
+}
+
+static inline void uarf_map_huge_or_die(void *addr_p, size_t size) {
+    // TODO: assert that a huge page is actually mapped
+    if (mmap(addr_p, size, PROT_RWX, MMAP_FLAGS | MAP_HUGETLB, -1, 0) == MAP_FAILED) {
+        UARF_LOG_ERROR("Failed to map %luB at 0x%lx\n", size, _ul(addr_p));
+        exit(1);
+    };
 }
 
 static inline void uarf_unmap_or_die(void *addr_p, size_t size) {

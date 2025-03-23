@@ -81,10 +81,11 @@ UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map)
         memcpy(conf.bin_map, bin_map, FR_CONFIG_BIN_MAPPING_SIZE * sizeof(size_t));
     }
 
-    uarf_map_or_die(conf.buf.base_p, conf.buf_size);
+    uarf_map_huge_or_die(conf.buf.base_p, conf.buf_size);
     uarf_map_or_die(conf.buf2.base_p, conf.buf_size);
     uarf_map_or_die(conf.res_p, conf.res_size);
 
+    // Madvise is for transparent huge pages only...
     madvise(conf.buf.p, conf.buf_size, MADV_HUGEPAGE);
     madvise(conf.buf2.p, conf.buf_size, MADV_HUGEPAGE);
 
