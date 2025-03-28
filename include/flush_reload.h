@@ -20,7 +20,8 @@
 #define FR_STRIDE_BITS 12
 #define FR_STRIDE      (1UL << FR_STRIDE_BITS)
 
-#define FR_OFFSET 0x180
+// #define FR_OFFSET 0x180
+#define FR_OFFSET 0x0
 
 #ifndef __ASSEMBLY__
 #include "compiler.h"
