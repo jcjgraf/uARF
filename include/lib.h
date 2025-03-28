@@ -260,13 +260,75 @@ static __always_inline uint64_t uarf_rdtscp(void) {
     return ((uint64_t) high << 32) | low;
 }
 
-// Get the number of cycles needed to read from `p`
+/**
+ * Read MPERF MSR from userspace, which is incremented by P0 frequency.
+ */
+static __always_inline uint64_t uarf_rdpru_mperf(void) {
+    unsigned int low, high;
+
+    asm volatile("rdpru" : "=a"(low), "=d"(high) : "c"(0));
+
+    return ((uint64_t) high << 32) | low;
+}
+
+/**
+ * Read APERF MSR from userspace, which is incremented by actual clock cycles.
+ */
+static __always_inline uint64_t uarf_rdpru_aperf(void) {
+    unsigned int low, high;
+
+    asm volatile("rdpru" : "=a"(low), "=d"(high) : "c"(1));
+
+    return ((uint64_t) high << 32) | low;
+}
+
+/**
+ * Get the number of cycles needed to read from `p`
+ *
+ * Used th rdtsc/p instructions
+ */
 static __always_inline uint64_t uarf_get_access_time(const void *p) {
     // TODO: Check right use of rdtsc(p) and barriers
+    uarf_lfence();
     uarf_mfence();
     uint64_t t0 = uarf_rdtsc();
     *(volatile uint64_t *) p;
     t0 = uarf_rdtscp() - t0;
+    uarf_lfence();
+    uarf_mfence();
+    return t0;
+}
+
+/**
+ * Get the number of cycles needed to read from `p`
+ *
+ * Used the APERF MSR
+ */
+static __always_inline uint64_t uarf_get_access_time2(const void *p) {
+    uarf_lfence();
+    uarf_mfence();
+    uint64_t t0 = uarf_rdpru_aperf();
+    *(volatile uint64_t *) p;
+    uarf_lfence();
+    t0 = uarf_rdpru_aperf() - t0;
+    uarf_lfence();
+    uarf_mfence();
+    return t0;
+}
+
+/**
+ * Get the number of cycles needed to read from `p`
+ *
+ * Used the MPERF MSR
+ */
+static __always_inline uint64_t uarf_get_access_time3(const void *p) {
+    uarf_lfence();
+    uarf_mfence();
+    uint64_t t0 = uarf_rdpru_mperf();
+    *(volatile uint64_t *) p;
+    uarf_lfence();
+    t0 = uarf_rdpru_mperf() - t0;
+    uarf_lfence();
     uarf_mfence();
     return t0;
 }
