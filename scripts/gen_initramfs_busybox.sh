@@ -159,6 +159,9 @@ chmod 644 /etc/group
 echo "nameserver 10.0.2.3" > /etc/resolv.conf
 ifconfig eth0 10.0.2.15
 route add default gw 10.0.2.2
+insmod /mnt/host0/uARF/kmods/pi/pi.ko
+insmod /mnt/host0/uARF/kmods/rap/rap.ko
+echo 512 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 $cwd
 $init
 EOF
