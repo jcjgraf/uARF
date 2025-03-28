@@ -10,12 +10,13 @@
 #define UARF_LOG_TAG UARF_LOG_TAG_MEM
 #endif
 
-#define MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE)
-#define PROT_RW    (PROT_READ | PROT_WRITE)
-#define PROT_RWX   (PROT_RW | PROT_EXEC)
+#define MMAP_FLAGS     (MAP_ANONYMOUS | MAP_PRIVATE)
+#define MMAP_FLAGS_FIX (MMAP_FLAGS | MAP_FIXED_NOREPLACE)
+#define PROT_RW        (PROT_READ | PROT_WRITE)
+#define PROT_RWX       (PROT_RW | PROT_EXEC)
 
 static inline void uarf_map_or_die(void *addr_p, size_t size) {
-    if (mmap(addr_p, size, PROT_RWX, MMAP_FLAGS, -1, 0) == MAP_FAILED) {
+    if (mmap(addr_p, size, PROT_RWX, MMAP_FLAGS_FIX, -1, 0) == MAP_FAILED) {
         UARF_LOG_ERROR("Failed to map %luB at 0x%lx\n", size, _ul(addr_p));
         exit(1);
     };
@@ -23,10 +24,29 @@ static inline void uarf_map_or_die(void *addr_p, size_t size) {
 
 static inline void uarf_map_huge_or_die(void *addr_p, size_t size) {
     // TODO: assert that a huge page is actually mapped
-    if (mmap(addr_p, size, PROT_RWX, MMAP_FLAGS | MAP_HUGETLB, -1, 0) == MAP_FAILED) {
+    if (mmap(addr_p, size, PROT_RWX, MMAP_FLAGS_FIX | MAP_HUGETLB, -1, 0) == MAP_FAILED) {
         UARF_LOG_ERROR("Failed to map %luB at 0x%lx\n", size, _ul(addr_p));
         exit(1);
     };
+}
+
+static inline uint64_t uarf_alloc_map_or_die(size_t size) {
+    void *addr = mmap(NULL, size, PROT_RWX, MMAP_FLAGS, -1, 0);
+    if (addr == MAP_FAILED) {
+        UARF_LOG_ERROR("Failed to map %luB\n", size);
+        exit(1);
+    };
+    return _ul(addr);
+}
+
+static inline uint64_t uarf_alloc_map_huge_or_die(size_t size) {
+    // TODO: assert that a huge page is actually mapped
+    void *addr = mmap(NULL, size, PROT_RWX, MMAP_FLAGS | MAP_HUGETLB, -1, 0);
+    if (addr == MAP_FAILED) {
+        UARF_LOG_ERROR("Failed to map %luB\n", size);
+        exit(1);
+    };
+    return _ul(addr);
 }
 
 static inline void uarf_unmap_or_die(void *addr_p, size_t size) {

@@ -6,6 +6,14 @@
 #define PAGE_SHIFT 12
 #endif
 
+#ifndef PAGE_SHIFT_2M
+#define PAGE_SHIFT_2M 21
+#endif
+
 #ifndef PAGE_SIZE
 #define PAGE_SIZE (_U64(1) << PAGE_SHIFT)
+#endif
+
+#ifndef PAGE_SIZE_2M
+#define PAGE_SIZE_2M (_U64(1) << PAGE_SHIFT_2M)
 #endif
