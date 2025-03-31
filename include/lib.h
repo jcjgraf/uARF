@@ -20,6 +20,8 @@
         _a > _b ? _a : _b;                                                               \
     })
 
+#define div_round_up(n, d) ((((n) + (d)) - 1) / (d))
+
 #define ROUND_2MB_UP(x) (((x) + 0x1fffffUL) & ~0x1fffffUL)
 
 static __always_inline void uarf_sfence(void) {

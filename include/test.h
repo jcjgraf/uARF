@@ -1,7 +1,7 @@
 #pragma once
 
-#include "log.h"
 #include "compiler.h"
+#include "log.h"
 #include <stdlib.h>
 
 #ifdef UARF_LOG_TAG
@@ -24,8 +24,11 @@
     CAT(UARF_TEST_CASE_PREFIX, name)()
 
 #define UARF_TEST_RUN_CASE_ARG(name, arg, ...)                                           \
-    UARF_LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                      \
-    CAT(UARF_TEST_CASE_PREFIX, name)(_ptr(arg))
+    ({                                                                                   \
+        UARF_LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                  \
+        unsigned long out = CAT(UARF_TEST_CASE_PREFIX, name)(_ptr(arg));                 \
+        out;                                                                             \
+    })
 
 #define UARF_TEST_PASS() return 0
 #define UARF_TEST_ASSERT(cond)                                                           \
