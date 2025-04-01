@@ -4,25 +4,21 @@
  * Determine the times required to access different cache levels.
  * This measurement is dependent on the measurement method.
  *
- * Zen4 (incl. Overhead):
- * - L1: 49
- * - L2: 56
- * - L3: 115
- * - Mem: 468
- *
- * The measurement overhead is 48.
-
- * Zen4 (minus overhead):
- * - L1: 1
- * - L2: 8
- * - L3: 67
- * - Mem: 419
+ * Zen4:
+ * - L1: 6
+ * - L2: 16
+ * - L3: 51
+ * - Mem: 430
  *
  * Zen4 (Should be, according so SOG):
  * - L1: 4
  * - L2: 14
  * - L3: 50
  * - Mem: ?
+ *
+ * The latencies seem reasonable, however, the correlation between memory size and cache
+ * level not really. This is very likely due to prefetching. But we are also not really
+ * convened by that.
  */
 
 #include "lib.h"
@@ -40,20 +36,6 @@ struct MemConfig {
     uint64_t num_iter;
     uint64_t (*measure_func)(const void *);
 };
-
-static inline uint64_t access_time2_overhead(size_t iter) {
-    uint64_t sum = 0;
-    for (size_t i = 0; i < iter; i++) {
-        uarf_lfence();
-        uarf_mfence();
-        uint64_t t0 = uarf_rdpru_aperf();
-        uarf_lfence();
-        sum += uarf_rdpru_aperf() - t0;
-        uarf_lfence();
-        uarf_mfence();
-    }
-    return sum / iter;
-}
 
 int compare_uint64(const void *a, const void *b) {
     uint64_t arg1 = *(const uint64_t *) a;
@@ -142,34 +124,33 @@ uint64_t test_sizes[22] = {1,     2,      4,      8,      16,      32,     64,  
                            256,   512,    1024,   2048,   4096,    8192,   16384, 32768,
                            65536, 131072, 262144, 524288, 1048576, 2097152};
 
-MemConfig cfg1 = {.page_size = PAGE_SIZE_2M,
-                  .mem_size = 0,
-                  .num_iter = 10,
-                  .measure_func = uarf_get_access_time2};
+MemConfig cfg1 = {
+    .page_size = PAGE_SIZE_2M,
+    .mem_size = 0,
+    .num_iter = 10,
+    .measure_func = uarf_get_access_time_a,
+};
 
 UARF_TEST_SUITE() {
 
     uarf_pi_init();
 
     // Disable prefetcher
-    uarf_wrmsr_user(0xc0000108, 47);
+    // Does not make any difference
+    // uarf_wrmsr_user(0xc0000108, 47);
 
-    uarf_log_system_base_level = UARF_LOG_LEVEL_ERROR;
+    uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
 
-    uint64_t overhead = access_time2_overhead(1000);
-    UARF_LOG_INFO("Overhead: %lu\n", overhead);
-    UARF_LOG_INFO("Acceess times (minus overhead):\n");
+    const uint64_t overhead = UARF_ACCESS_TIME_A_OVERHEAD;
+    UARF_LOG_INFO("Acceess times:\n");
 
     for (size_t i = 0; i < sizeof(test_sizes) / sizeof(test_sizes[0]); i++) {
         cfg1.mem_size = (test_sizes[i] << 10);
 
-        uint64_t dt = 0;
-
-        do {
-            dt = UARF_TEST_RUN_CASE_ARG(basic, &cfg1);
-        } while (overhead > dt);
+        uint64_t dt = UARF_TEST_RUN_CASE_ARG(basic, &cfg1);
+        uarf_assert(dt > overhead);
         dt -= overhead;
-        printf("%lu, %lu\n", cfg1.mem_size, dt);
+        printf("%lu, %lu\n", cfg1.mem_size >> 10, dt);
     }
 
     uarf_pi_deinit();

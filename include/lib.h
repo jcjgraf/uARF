@@ -291,13 +291,15 @@ static __always_inline uint64_t uarf_rdpru_aperf(void) {
  */
 static __always_inline uint64_t uarf_get_access_time(const void *p) {
     // TODO: Check right use of rdtsc(p) and barriers
-    uarf_lfence();
     uarf_mfence();
+    uarf_lfence();
     uint64_t t0 = uarf_rdtsc();
-    *(volatile uint64_t *) p;
-    t0 = uarf_rdtscp() - t0;
-    uarf_lfence();
     uarf_mfence();
+    *(volatile uint64_t *) p;
+    uarf_mfence();
+    t0 = uarf_rdtscp() - t0;
+    uarf_mfence();
+    uarf_lfence();
     return t0;
 }
 
@@ -305,32 +307,45 @@ static __always_inline uint64_t uarf_get_access_time(const void *p) {
  * Get the number of cycles needed to read from `p`
  *
  * Used the APERF MSR
+ *
+ * Use same fences as "AMD Prefetch Attacks" paper
+ *
+ * Overhead: 57
  */
-static __always_inline uint64_t uarf_get_access_time2(const void *p) {
-    uarf_lfence();
+static __always_inline uint64_t uarf_get_access_time_a(const void *p) {
     uarf_mfence();
+    uarf_lfence();
     uint64_t t0 = uarf_rdpru_aperf();
+    uarf_lfence();
     *(volatile uint64_t *) p;
     uarf_lfence();
     t0 = uarf_rdpru_aperf() - t0;
-    uarf_lfence();
     uarf_mfence();
+    uarf_lfence();
     return t0;
 }
+// When using -O3
+#define UARF_ACCESS_TIME_A_OVERHEAD 57
 
 /**
  * Get the number of cycles needed to read from `p`
  *
  * Used the MPERF MSR
+ *
+ * Use same fences as "AMD Prefetch Attacks" paper
+ *
+ * Overhead: 135
  */
-static __always_inline uint64_t uarf_get_access_time3(const void *p) {
-    uarf_lfence();
+static __always_inline uint64_t uarf_get_access_time_m(const void *p) {
     uarf_mfence();
+    uarf_lfence();
     uint64_t t0 = uarf_rdpru_mperf();
-    *(volatile uint64_t *) p;
-    uarf_lfence();
-    t0 = uarf_rdpru_mperf() - t0;
-    uarf_lfence();
     uarf_mfence();
+    *(volatile uint64_t *) p;
+    uarf_mfence();
+    t0 = uarf_rdpru_mperf() - t0;
+    uarf_mfence();
+    uarf_lfence();
     return t0;
 }
+#define UARF_ACCESS_TIME_M_OVERHEAD 135
