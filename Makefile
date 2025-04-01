@@ -27,7 +27,7 @@ COMMON_INCLUDES := -I$(uARF_INCL)
 
 COMMON_FLAGS := $(COMMON_INCLUDES) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
-CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static
+CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static -O3
 
 SOURCES     := $(shell find $(uARF_SRC) -name \*.c)
 HEADERS     := $(shell find $(uARF_INCL) $(uARF_KMOD) -name \*.h)

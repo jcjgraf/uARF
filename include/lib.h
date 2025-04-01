@@ -324,7 +324,7 @@ static __always_inline uint64_t uarf_get_access_time_a(const void *p) {
     uarf_lfence();
     return t0;
 }
-// When using -O3
+// Depends on optimisations!
 #define UARF_ACCESS_TIME_A_OVERHEAD 57
 
 /**
@@ -348,4 +348,5 @@ static __always_inline uint64_t uarf_get_access_time_m(const void *p) {
     uarf_lfence();
     return t0;
 }
+// Depends on optimisations!
 #define UARF_ACCESS_TIME_M_OVERHEAD 135
