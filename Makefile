@@ -27,6 +27,7 @@ COMMON_INCLUDES := -I$(uARF_INCL)
 
 COMMON_FLAGS := $(COMMON_INCLUDES) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
+# WARNING Changing the leads to different overheads of the measurement function
 CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static -O3
 
 SOURCES     := $(shell find $(uARF_SRC) -name \*.c)

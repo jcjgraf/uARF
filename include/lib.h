@@ -303,6 +303,8 @@ static __always_inline uint64_t uarf_get_access_time(const void *p) {
     return t0;
 }
 
+// Depends on optimisations!
+#define UARF_ACCESS_TIME_A_OVERHEAD 57
 /**
  * Get the number of cycles needed to read from `p`
  *
@@ -322,11 +324,11 @@ static __always_inline uint64_t uarf_get_access_time_a(const void *p) {
     t0 = uarf_rdpru_aperf() - t0;
     uarf_mfence();
     uarf_lfence();
-    return t0;
+    return t0 - UARF_ACCESS_TIME_A_OVERHEAD;
 }
-// Depends on optimisations!
-#define UARF_ACCESS_TIME_A_OVERHEAD 57
 
+// Depends on optimisations!
+#define UARF_ACCESS_TIME_M_OVERHEAD 135
 /**
  * Get the number of cycles needed to read from `p`
  *
@@ -346,7 +348,5 @@ static __always_inline uint64_t uarf_get_access_time_m(const void *p) {
     t0 = uarf_rdpru_mperf() - t0;
     uarf_mfence();
     uarf_lfence();
-    return t0;
+    return t0 - UARF_ACCESS_TIME_M_OVERHEAD;
 }
-// Depends on optimisations!
-#define UARF_ACCESS_TIME_M_OVERHEAD 135
