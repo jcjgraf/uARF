@@ -47,6 +47,7 @@ enum UarfLogTag {
     UARF_LOG_TAG_PFC = BIT(7),
     UARF_LOG_TAG_GUEST = BIT(8),
     UARF_LOG_TAG_APP = BIT(9),
+    UARF_LOG_TAG_DLL = BIT(10),
     UARF_LOG_TAG_ALL = ULONG_MAX,
 };
 
