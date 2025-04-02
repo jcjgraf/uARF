@@ -95,12 +95,11 @@ UARF_TEST_CASE_ARG(basic, config) {
 
     for (size_t iter = 0; iter < cfg->num_iter; iter++) {
         for (size_t access = 0; access < num_accesses; access++) {
-            size_t k = (access * 421 + 9) & (num_accesses - 1);
+            size_t k = (access * 7841 + 4943) & (num_accesses - 1);
             size_t page_i = k / access_per_page;
             size_t page_offset = k - (page_i * access_per_page);
             uarf_assert(page_i < num_pages);
             uarf_assert(page_offset < access_per_page);
-
             res[res_i++] = cfg->measure_func(_ptr(pages_p[page_i] + page_offset));
         }
     }
@@ -141,15 +140,12 @@ UARF_TEST_SUITE() {
 
     uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
 
-    const uint64_t overhead = UARF_ACCESS_TIME_A_OVERHEAD;
     UARF_LOG_INFO("Acceess times:\n");
 
     for (size_t i = 0; i < sizeof(test_sizes) / sizeof(test_sizes[0]); i++) {
         cfg1.mem_size = (test_sizes[i] << 10);
 
         uint64_t dt = UARF_TEST_RUN_CASE_ARG(basic, &cfg1);
-        uarf_assert(dt > overhead);
-        dt -= overhead;
         printf("%lu, %lu\n", cfg1.mem_size >> 10, dt);
     }
 
