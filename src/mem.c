@@ -19,12 +19,18 @@ uint64_t uarf_va_to_pa(uint64_t va, uint64_t pid) {
         fd = open("/proc/self/pagemap", O_RDONLY);
     }
     if (!fd) {
-        UARF_LOG_ERROR("Failed to convert va to pa. Open pagemap\n");
+        UARF_LOG_ERROR("Failed to convert va to pa. Could not open pagemap\n");
         exit(1);
     }
-    unsigned long pa_with_flags;
+    uint64_t pa_with_flags;
     if (pread(fd, &pa_with_flags, 8, (va & ~0xffful) >> 9) < 0) {
-        UARF_LOG_ERROR("Failed to convert va to pa. Read pagemap\n");
+        UARF_LOG_ERROR("Failed to convert va to pa. Could not read pagemap\n");
+        exit(1);
+    }
+    uint64_t pa = pa_with_flags & 0x7FFFFFFFFFFFFF;
+    if (!pa) {
+        UARF_LOG_ERROR(
+            "PA is all zero. Probably you do not have sufficient permissions.\n");
         exit(1);
     }
     return pa_with_flags << 12 | (va & 0xfff);
