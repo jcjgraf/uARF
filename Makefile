@@ -10,6 +10,19 @@ endif
 PLATFORM_CONFIG := $(uARF_ROOT)/config/$(PLATFORM).config
 include $(PLATFORM_CONFIG)
 
+COMMON_DEFINE := -Dzen4=1 -Dzen5=2 -Dskylake=3
+
+ifeq ($(HOSTNAME), ee-tik-cn128)
+    COMMON_DEFINE += -DUARCH=zen4
+else ifeq ($(HOSTNAME), ee-tik-cn145)
+    COMMON_DEFINE += -DUARCH=zen5
+else ifeq ($(HOSTNAME), jcarch)
+    COMMON_DEFINE += -DUARCH=skylake
+else
+    $(error "Unrecognised system")
+endif
+
+
 uARF_SRC := $(uARF_ROOT)/src
 uARF_INCL := $(uARF_ROOT)/include
 uARF_TEST := $(uARF_ROOT)/tests
@@ -25,9 +38,9 @@ COMMON_INCLUDES := -I$(uARF_INCL)
 # COMMON_INCLUDES += -I$(KTF_ROOT)/include
 # endif
 
-COMMON_FLAGS := $(COMMON_INCLUDES) -MP -MMD
+COMMON_FLAGS := $(COMMON_INCLUDES) $(COMMON_DEFINE) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
-# WARNING Changing the leads to different overheads of the measurement function
+# WARNING Changing the optimisation leads to different overheads of the measurement function
 CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static -O3
 
 SOURCES     := $(shell find $(uARF_SRC) -name \*.c)
