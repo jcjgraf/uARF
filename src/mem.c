@@ -1,5 +1,9 @@
 #include "mem.h"
+#include "lib.h"
+#include "page.h"
+#include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 
 /*
@@ -33,5 +37,50 @@ uint64_t uarf_va_to_pa(uint64_t va, uint64_t pid) {
             "PA is all zero. Probably you do not have sufficient permissions.\n");
         exit(1);
     }
+    if (close(fd) == -1) {
+        UARF_LOG_ERROR("Failed to close fd: %s\n", strerror(errno));
+        exit(1);
+    }
     return pa_with_flags << 12 | (va & 0xfff);
+}
+
+/**
+ * Allocate and return pointer to an page at an arbitrary address.
+ *
+ * Simply using malloc does not allocate them at random addresses.
+ */
+void *uarf_alloc_random_page(void) {
+    UARF_LOG_TRACE("()\n");
+    const int flags = MMAP_FLAGS | MAP_FIXED;
+    void *map;
+    do {
+        uint64_t cand_addr = uarf_rand47() & ~(PAGE_SIZE - 1);
+        map = mmap(_ptr(cand_addr), PAGE_SIZE, PROT_RWX, flags, -1, 0);
+    } while (map == MAP_FAILED);
+    return map;
+}
+
+/**
+ * Allocate and return pointer to a hugepage at an arbitrary address.
+ *
+ * Simply using malloc does not allocate them at random addresses.
+ */
+void *uarf_alloc_random_hugepage(void) {
+    UARF_LOG_TRACE("()\n");
+    const int flags = MMAP_FLAGS | MAP_FIXED | MAP_HUGETLB;
+    void *map;
+    do {
+        uint64_t cand_addr = uarf_rand47() & ~(PAGE_SIZE_2M - 1);
+        map = mmap(_ptr(cand_addr), PAGE_SIZE_2M, PROT_RWX, flags, -1, 0);
+    } while (map == MAP_FAILED);
+    return map;
+}
+
+void uarf_reload_tlb(uint64_t addr) {
+    UARF_LOG_TRACE("(0x%lx)\n", addr);
+    uint64_t page_base = addr & ~(PAGE_SIZE - 1);
+    uint64_t page_offset = addr & (PAGE_SIZE - 1);
+    page_offset += 64;
+    page_offset %= PAGE_SIZE;
+    *(volatile uint64_t *) (page_base + page_offset);
 }

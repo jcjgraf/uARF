@@ -70,3 +70,11 @@ static inline void uarf_free_or_die(void *ptr) {
 }
 
 uint64_t uarf_va_to_pa(uint64_t va, uint64_t pid);
+void *uarf_alloc_random_page(void);
+void *uarf_alloc_random_hugepage(void);
+
+/**
+ * Access the page containing `addr` at some offset from `addr` to get the mapping into
+ * the TLB.
+ */
+void uarf_reload_tlb(uint64_t addr);

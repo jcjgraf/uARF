@@ -39,6 +39,11 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
     uint32_t *res_bin_p = (uint32_t *) (conf->res_p + bin_i * conf->num_slots);
     UARF_LOG_DEBUG("result address: %p\n", res_bin_p);
 
+    for (uint64_t k = 0; k < conf->num_slots; ++k) {
+        void *p = conf->buf.handle_p + FR_STRIDE * k;
+        uarf_reload_tlb(_ul(p));
+    }
+
     // Should be completely unrolled to prevent data triggering the data cache prefetcher
 #pragma GCC unroll 1024
     for (uint64_t k = 0; k < conf->num_slots; ++k) {
