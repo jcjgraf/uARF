@@ -7,10 +7,12 @@
  */
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+
 /**
  * A node can either be a start or an end sentinel, or a normal node.
  */
-#include <stddef.h>
 typedef enum UarfDllNodeType UarfDllNodeType;
 enum UarfDllNodeType {
     UARF_DLL_NODE_TYPE_HEAD = 0,
@@ -56,3 +58,4 @@ void uarf_dll_node_print_node(UarfDllNode *node);
 void uarf_dll_print_from_head(UarfDll *dll);
 void uarf_dll_remove(UarfDllNode *node);
 size_t uarf_dll_size(UarfDll *dll);
+void uarf_dll_filter(UarfDll *dll, bool filter(UarfDllNode *node));

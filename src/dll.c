@@ -220,3 +220,19 @@ size_t uarf_dll_size(UarfDll *dll) {
 
     return len;
 }
+
+/**
+ * Remove all elements of `dll` there `filter` is false.
+ */
+void uarf_dll_filter(UarfDll *dll, bool filter(UarfDllNode *node)) {
+    UARF_LOG_TRACE("(%p, %p)\n", dll, filter);
+    uarf_dll_for_each(dll, elem) {
+        if (elem->type != UARF_DLL_NODE_TYPE_NORMAL) {
+            continue;
+        }
+
+        if (!filter(elem)) {
+            uarf_dll_remove(elem);
+        }
+    }
+}
