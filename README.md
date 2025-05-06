@@ -37,9 +37,10 @@ uARF can be used in two ways:
 - Include `./include` in your project
 
 ## Kernel Modules
-uARF comes with two kernel modules:
+uARF comes with three kernel modules:
 - Privileged Instruction (pi): Run a privileged instruction as a user
 - Run as Privileged (rap): Run arbitrary code as supervisor
+- Dump cr3 (cr3): Reading `/proc/uarf_cr3` returns the cr3 of all processes
 
 ### How to
 - Need to be compiled for the target's kernel version
