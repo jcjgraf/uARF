@@ -95,7 +95,9 @@ UARF_TEST_CASE_ARG(basic, config) {
 
     for (size_t iter = 0; iter < cfg->num_iter; iter++) {
         for (size_t access = 0; access < num_accesses; access++) {
-            size_t k = (access * 7841 + 4943) & (num_accesses - 1);
+            size_t k = (access * 7817 + 4349) & (num_accesses - 1);
+            // size_t k = (access * 7841 + 4943) & (num_accesses - 1);
+            // size_t k = (access *   9311 + 197) & (num_accesses - 1);
             size_t page_i = k / access_per_page;
             size_t page_offset = k - (page_i * access_per_page);
             uarf_assert(page_i < num_pages);
