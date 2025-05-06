@@ -11,9 +11,9 @@ modules.order
 *.mod
 *.mod.c
 
-scripts/busybox
-scripts/initramfs
-scripts/bzImage
+**/busybox
+**/initramfs
+**/bzImage
 
 compile_commands*.json
 
