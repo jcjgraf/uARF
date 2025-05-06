@@ -19,7 +19,7 @@ else ifeq ($(HOSTNAME), ee-tik-cn145)
 else ifeq ($(HOSTNAME), jcarch)
     COMMON_DEFINE += -DUARCH=skylake
 else
-    $(error "Unrecognised system")
+    $(warning "Unrecognised system")
 endif
 
 
