@@ -206,6 +206,14 @@ static __always_inline void uarf_write_cr3(unsigned long cr3) {
     asm volatile("mov %0, %%cr3" ::"r"(cr3));
 }
 
+static __always_inline unsigned long uarf_read_cr4(void) {
+    unsigned long cr4;
+
+    asm volatile("mov %%cr4, %0" : "=r"(cr4));
+
+    return cr4;
+}
+
 static __always_inline void uarf_invlpg(void *addr) {
     asm volatile("invlpg (%0)" ::"r"(addr) : "memory");
 }
