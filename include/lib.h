@@ -6,19 +6,23 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifndef min
 #define min(a, b)                                                                        \
     ({                                                                                   \
         const typeof(a) _a = (a);                                                        \
         const typeof(b) _b = (b);                                                        \
         _a < _b ? _a : _b;                                                               \
     })
+#endif
 
+#ifndef max
 #define max(a, b)                                                                        \
     ({                                                                                   \
         const typeof(a) _a = (a);                                                        \
         const typeof(b) _b = (b);                                                        \
         _a > _b ? _a : _b;                                                               \
     })
+#endif
 
 #define div_round_up(n, d) ((((n) + (d)) - 1) / (d))
 
