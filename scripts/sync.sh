@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -u
+set -e
+
 # Open a new file descriptor that redirects to stdout:
 # For logging
 exec 3>&1
