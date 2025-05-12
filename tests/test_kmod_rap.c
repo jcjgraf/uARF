@@ -6,8 +6,8 @@
 
 #include "compiler.h"
 #include "kmod/rap.h"
-#include "test.h"
 #include "lib.h"
+#include "test.h"
 
 #define ROUNDS 100
 

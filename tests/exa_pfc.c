@@ -94,7 +94,9 @@ uarf_psnip_declare_define(psnip_ret, "ret\n\t");
 
 uarf_psnip_declare_define(psnip_counter_init, "movq $0, %rdi\n\t");
 uarf_psnip_declare_define(psnip_counter_inc, "inc %rdi\n\t");
-uarf_psnip_declare_define(psnip_counter_jmp, "int3\n\t""int3\n\t"  "cmp $5, %rdi\n\t"
+uarf_psnip_declare_define(psnip_counter_jmp, "int3\n\t"
+                                             "int3\n\t"
+                                             "cmp $5, %rdi\n\t"
                                              "je .+16\n\t");
 
 uarf_psnip_declare_define(psnip_reg_ind_br, "lea return_here1(%rip), %rsi\n\t"

@@ -40,7 +40,8 @@ void uarf_es_deinit(Es *es) {
 }
 
 /**
- * Access the eviction set `es` forward, backward, forward and repeat `num_rep` times.
+ * Access the eviction set `es` forward, backward, forward and repeat `num_rep`
+ * times.
  */
 void uarf_es_access_fbf(Es *es, size_t num_rep) {
     for (size_t round = 0; round < num_rep; round++) {
@@ -84,7 +85,8 @@ void uarf_es_access_local(Es *es, size_t num_rep) {
         // // Forward access
         // for (EsElem *elem = es->head; elem != NULL; elem = elem->next) {
         //     EsElem *elem_access = elem;
-        //     for (size_t i = 0; i < 1 && elem_access->type == UARF_DLL_NODE_TYPE_NORMAL;
+        //     for (size_t i = 0; i < 1 && elem_access->type ==
+        //     UARF_DLL_NODE_TYPE_NORMAL;
         //          i++) {
         //         *(volatile uint64_t *) elem_access;
         //     }
@@ -93,7 +95,8 @@ void uarf_es_access_local(Es *es, size_t num_rep) {
 }
 
 /**
- * How effective is es in evicting `victim` from cache, as indicated by `is_in_cache`?
+ * How effective is es in evicting `victim` from cache, as indicated by
+ * `is_in_cache`?
  *
  * 1: pefect, 0: not at all
  */
@@ -113,8 +116,8 @@ float uarf_es_effectiveness(Es *es, void *victim, size_t reps, bool is_in_cache(
 }
 
 /**
- * Reduce the number of elements in `es` such that it still evicts `victim` by means of
- * `es_eff`.
+ * Reduce the number of elements in `es` such that it still evicts `victim` by
+ * means of `es_eff`.
  */
 size_t uarf_es_reduce(Es *es, void *victim,
                       float es_eff(Es *es, void *victim, size_t reps,

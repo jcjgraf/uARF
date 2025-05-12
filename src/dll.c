@@ -25,7 +25,8 @@ void uarf_dll_insert_inbetween(UarfDllNode *new, UarfDllNode *previous,
     UARF_LOG_TRACE("(%p, %p, %p)\n", new, previous, next);
     uarf_assert(new != NULL &&previous != NULL &&next != NULL);
     uarf_assert(previous->next == next && previous == next->prev);
-    // uarf_assert(new->prev == NULL &&new->next == NULL); // Can be removed if required
+    // uarf_assert(new->prev == NULL &&new->next == NULL); // Can be removed if
+    // required
 
     new->prev = previous;
     new->next = next;
@@ -43,7 +44,8 @@ void uarf_dll_push_after(UarfDllNode *new, UarfDllNode *previous) {
     UARF_LOG_TRACE("(%p, %p)\n", new, previous);
     uarf_assert(new != NULL &&previous != NULL);
     uarf_assert(previous->next->prev == previous);
-    // uarf_assert(new->prev == NULL &&new->next == NULL); // Can be removed if required
+    // uarf_assert(new->prev == NULL &&new->next == NULL); // Can be removed if
+    // required
 
     uarf_dll_insert_inbetween(new, previous, previous->next);
 }

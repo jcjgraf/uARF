@@ -12,8 +12,8 @@ void uarf_fr_flush(UarfFrConfig *conf) {
         volatile void *p = conf->buf.handle_p + i * FR_STRIDE;
         uarf_clflush(p);
     }
-    uarf_mfence(); // Required to enforce ordering of cl flush with subsequent memory
-                   // operations on AMD
+    uarf_mfence(); // Required to enforce ordering of cl flush with subsequent
+                   // memory operations on AMD
     uarf_sfence();
     uarf_lfence();
 }
@@ -44,11 +44,12 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
         uarf_reload_tlb(_ul(p));
     }
 
-    // Should be completely unrolled to prevent data triggering the data cache prefetcher
+    // Should be completely unrolled to prevent data triggering the data cache
+    // prefetcher
 #pragma GCC unroll 1024
     for (uint64_t k = 0; k < conf->num_slots; ++k) {
-        // NOTE: If there are many false positives in the result, play with this function
-        // size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
+        // NOTE: If there are many false positives in the result, play with this
+        // function size_t buf_i = (k * 13 + 9) & (conf->num_slots - 1);
         size_t buf_i = (k * 421 + 9) & (conf->num_slots - 1);
         void *p = conf->buf.handle_p + FR_STRIDE * buf_i;
         uint64_t dt = uarf_get_access_time(p);
@@ -59,8 +60,8 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
     uarf_mfence();
 }
 
-// Initialize the flush and reload buffer, its dummy version  and history buffer.
-// Needs to be done from kernel space
+// Initialize the flush and reload buffer, its dummy version  and history
+// buffer. Needs to be done from kernel space
 UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map) {
     UARF_LOG_TRACE("(%u, %u, %p)\n", num_slots, num_bins, bin_map);
 

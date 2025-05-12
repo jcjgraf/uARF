@@ -9,7 +9,7 @@
  * [Retired Instructions] (Core::X86::Pmc::Core::ExRetInstr)
  * The number of instructions retired.
  */
-#define UARF_AMD_EX_RET_INSTR    UARF_PMU_CONFIG(.event = 0xC0, .umask = 0x00)
+#define UARF_AMD_EX_RET_INSTR UARF_PMU_CONFIG(.event = 0xC0, .umask = 0x00)
 
 /**
  * [Retired Near Returns Mispredicted]

@@ -92,8 +92,8 @@ void uarf_jita_allocate(UarfJitaCtxt *ctxt, UarfStub *stub, uint64_t addr) {
     stub->end_addr = addr;
 
     if (ctxt->n_snips == 0) {
-        UARF_LOG_WARNING(
-            "No stubs have been added to the jits!\nIs this really what you want?\n");
+        UARF_LOG_WARNING("No stubs have been added to the jita!\nIs this really "
+                         "what you want?\n");
     }
 
     UARF_LOG_DEBUG("Create new stub with:\n"

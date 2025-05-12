@@ -7,7 +7,8 @@
  * Speculation window of register indirect branches are very short and work rather
  * unreliably.
  *
- * We can train a memory indirect branch using a register indirect branch. But get no signal vice versa.
+ * We can train a memory indirect branch using a register indirect branch. But get no
+ * signal vice versa.
  */
 
 #include "flush_reload.h"
