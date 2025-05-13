@@ -307,7 +307,7 @@ static __always_inline uint64_t uarf_get_access_time(const void *p) {
     uarf_lfence();
     uint64_t t0 = uarf_rdtsc();
     uarf_mfence();
-    *(volatile uint64_t *) p;
+    *(volatile char *) p;
     uarf_mfence();
     t0 = uarf_rdtscp() - t0;
     uarf_mfence();
@@ -331,7 +331,7 @@ static __always_inline uint64_t uarf_get_access_time_a(const void *p) {
     uarf_lfence();
     uint64_t t0 = uarf_rdpru_aperf();
     uarf_lfence();
-    *(volatile uint64_t *) p;
+    *(volatile char *) p;
     uarf_lfence();
     t0 = uarf_rdpru_aperf() - t0;
     uarf_mfence();
@@ -355,7 +355,7 @@ static __always_inline uint64_t uarf_get_access_time_m(const void *p) {
     uarf_lfence();
     uint64_t t0 = uarf_rdpru_mperf();
     uarf_mfence();
-    *(volatile uint64_t *) p;
+    *(volatile char *) p;
     uarf_mfence();
     t0 = uarf_rdpru_mperf() - t0;
     uarf_mfence();
