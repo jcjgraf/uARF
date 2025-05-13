@@ -62,6 +62,9 @@
 #ifndef __section
 #define __section(s) __attribute__((__section__(s)))
 #endif
+#ifndef __noinline
+#define __noinline __attribute__((__noinline__))
+#endif
 
 #ifndef __text
 #define __text __section(".text")

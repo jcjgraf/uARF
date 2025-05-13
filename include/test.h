@@ -12,12 +12,14 @@
 #define UARF_TEST_CASE_PREFIX test_case_
 
 #define UARF_TEST_CASE(name)                                                             \
-    static unsigned long __text CAT(UARF_TEST_CASE_PREFIX, name)(void)
+    static unsigned long __noinline __text CAT(UARF_TEST_CASE_PREFIX, name)(void)
 
 #define UARF_TEST_CASE_ARG(name, arg)                                                    \
-    static unsigned long __text CAT(UARF_TEST_CASE_PREFIX, name)(void *arg)
+    static unsigned long __noinline __text CAT(UARF_TEST_CASE_PREFIX, name)(void *arg)
 
 #define UARF_TEST_SUITE() int main(void)
+
+#define UARF_TEST_SUITE_ARG(argc, argv) int main(int argc, char **argv)
 
 #define UARF_TEST_RUN_CASE(name, ...)                                                    \
     UARF_LOG_INFO("Run TestCase " STR(name) ": " __VA_ARGS__ "\n");                      \
