@@ -34,7 +34,7 @@ static size_t uarf_get_bin(UarfFrConfig *conf, size_t iteration) {
 
 void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
     UARF_LOG_TRACE("(%p, %lu)\n", conf, iteration);
-    uarf_mfence();
+
     size_t bin_i = uarf_get_bin(conf, iteration);
     uint32_t *res_bin_p = (uint32_t *) (conf->res_p + bin_i * conf->num_slots);
     UARF_LOG_DEBUG("result address: %p\n", res_bin_p);
@@ -43,6 +43,7 @@ void uarf_fr_reload_binned(UarfFrConfig *conf, size_t iteration) {
         void *p = conf->buf.handle_p + FR_STRIDE * k;
         uarf_reload_tlb(_ul(p));
     }
+    uarf_mfence();
 
     // Should be completely unrolled to prevent data triggering the data cache
     // prefetcher

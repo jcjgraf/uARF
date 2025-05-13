@@ -5,7 +5,7 @@
 #pragma once
 
 // L3 miss
-#define FR_THRESH 150
+#define FR_THRESH 200
 
 // Address of first flush and reload buffer
 #define FR_BUF 0xfff1f200000ul

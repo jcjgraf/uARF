@@ -1,12 +1,13 @@
 /**
  * Flush and Reload Side-Channel
  *
- * This tests simple flushing, reloading, and timing primitives, as well as the complete
- * flush and reload functionality.
+ * This tests simple flushing, reloading, and timing primitives, as well as the
+ * complete flush and reload functionality.
  *
  */
 
 #include "flush_reload.h"
+#include "flush_reload_static.h"
 #include "log.h"
 #include "mem.h"
 #include "test.h"
@@ -55,8 +56,8 @@ UARF_TEST_CASE(case_flush) {
     t_c /= ROUNDS;
     t_n /= ROUNDS;
 
-    UARF_LOG_DEBUG("Cached:   %lu\n", t_c);
-    UARF_LOG_DEBUG("Uncached: %lu\n", t_n);
+    UARF_LOG_INFO("Cached:   %lu\n", t_c);
+    UARF_LOG_INFO("Uncached: %lu\n", t_n);
 
     UARF_TEST_ASSERT(t_c < t_n);
     UARF_TEST_ASSERT(t_c < FR_THRESH);
@@ -115,7 +116,8 @@ UARF_TEST_CASE(flush_reload_small) {
     UARF_TEST_PASS();
 }
 
-// Flush and reload side channel with 256 slot buffer (to used to leak a full byte)
+// Flush and reload side channel with 256 slot buffer (to used to leak a full
+// byte)
 UARF_TEST_CASE(flush_reload_large) {
 
     UarfFrConfig conf = uarf_fr_init(256, 1, NULL);
@@ -207,14 +209,48 @@ UARF_TEST_CASE(flush_reload_bin) {
     UARF_TEST_PASS();
 }
 
+UARF_TEST_CASE(flush_reload_static) {
+    uarf_frs_init();
+
+    uarf_frs_reset();
+
+    uintptr_t fr_base = UARF_FRS_BUF_BASE + UARF_FRS_OFFSET;
+
+#define SECRET    1
+#define NUM_RUNDS 10
+
+    for (size_t i = 0; i < NUM_RUNDS; i++) {
+        uarf_frs_flush();
+        *(volatile uint8_t *) (fr_base + SECRET * FR_STRIDE);
+        *(volatile uint8_t *) (fr_base + (SECRET + 2) * FR_STRIDE);
+        uarf_frs_reload();
+    }
+
+    UARF_LOG_DEBUG("FR Buffer\n");
+    uarf_frs_print();
+
+    uarf_frs_deinit();
+
+    UARF_TEST_PASS();
+}
+
 UARF_TEST_SUITE() {
-    UARF_TEST_RUN_CASE(case_clflush);
+
+    // uarf_log_system_base_level = UARF_LOG_LEVEL_DEBUG;
+
+    // WARNING: Different test can influence each other in the sense that the RB
+    // buffer gets prefetched
+    UARF_LOG_WARNING("May contain false positives as test cases influence each "
+                     "other (prefetcher)\n");
+
+    // UARF_TEST_RUN_CASE(case_clflush);
     UARF_TEST_RUN_CASE(case_flush);
     UARF_TEST_RUN_CASE(flush_reload);
     UARF_TEST_RUN_CASE(flush_reload_small);
     UARF_TEST_RUN_CASE(flush_reload_large);
     UARF_TEST_RUN_CASE(buffer_values);
     UARF_TEST_RUN_CASE(flush_reload_bin);
+    UARF_TEST_RUN_CASE(flush_reload_static);
 
     return 0;
 }
