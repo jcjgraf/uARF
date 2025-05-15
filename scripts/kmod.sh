@@ -100,7 +100,7 @@ function reload_module() {
 
     if lsmod | grep -qE "^$module_names\s+"; then
         log "Module '$module_names' is loaded. Reloading..."
-        rmmod $module_names
+        sudo rmmod $module_names
         out=$?
         if [ $out -ne 0 ]; then
             log_err "Removing module"
@@ -110,7 +110,7 @@ function reload_module() {
         log "Module '$module_names' is not loaded. Loading..."
     fi
 
-    insmod $module_path
+    sudo insmod $module_path
     out=$?
     if [ $out -ne 0 ]; then
         log_err "Inserting module"
