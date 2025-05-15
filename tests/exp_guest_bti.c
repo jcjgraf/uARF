@@ -238,9 +238,9 @@ static void guest_run_spec_supervisor(void) {
  * For signaling phase.
  */
 static void guest_run_fr_spec_supervisor(void) {
-    uarf_fr_flush();
+    uarf_frs_flush();
     run_spec_global();
-    uarf_fr_reload();
+    uarf_frs_reload();
     GUEST_DONE();
 }
 
@@ -270,9 +270,9 @@ static void guest_run_fr_spec_user(void) {
 
     uarf_supervisor2user(__USER_DS, __USER_CS);
 
-    uarf_fr_flush();
+    uarf_frs_flush();
     run_spec_global();
-    uarf_fr_reload();
+    uarf_frs_reload();
 
     // Return back to supervisor, such that we do no get troubles when recycling
     // the VM
@@ -379,7 +379,7 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
     uint64_t extra_pages = 10 * (3 + 512);
 
-    uarf_fr_init();
+    uarf_frs_init();
 
     stub_main = uarf_stub_init();
     stub_gadget = uarf_stub_init();
@@ -406,7 +406,7 @@ UARF_TEST_CASE_ARG(basic, arg) {
         UarfSpecData train_data = {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_gadget.addr),
-            .fr_buf_p = UARF_FR_BUF,
+            .fr_buf_p = UARF_FRS_BUF,
             .secret = 0,
             .hist = h1,
         };
@@ -415,7 +415,7 @@ UARF_TEST_CASE_ARG(basic, arg) {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_dummy.addr),
             // .spec_dst_p_p = _ul(&stub_gadget.addr),
-            .fr_buf_p = UARF_FR_BUF,
+            .fr_buf_p = UARF_FRS_BUF,
             .secret = SECRET,
             .hist = h2,
         };
@@ -441,26 +441,26 @@ UARF_TEST_CASE_ARG(basic, arg) {
             map_stub_to_guest(vm, &stub_dummy);
 
             // Map FR Buffer
-            map_mem_to_guest(vm, UARF_FR_BUF_BASE, UARF_FR_BUF_SIZE);
+            map_mem_to_guest(vm, UARF_FRS_BUF_BASE, UARF_FRS_BUF_SIZE);
 
             // If signaling is in guest ensure buffer is paged and result buffer mapped
             if (data->signal_mode == GUEST_USER ||
                 data->signal_mode == GUEST_SUPERVISOR) {
-                void *buf_base_hva = addr_gva2hva(vm, UARF_FR_BUF_BASE);
+                void *buf_base_hva = addr_gva2hva(vm, UARF_FRS_BUF_BASE);
 
                 // NOTE: Hugepages are apparently supported in KVM selftest guest
                 // madvise fails
                 // madvise(addr_gva2hva(vm, _ul(buf_base_hva)),
-                // 	UARF_FR_BUF_SIZE, MADV_HUGEPAGE);
+                // 	UARF_FRS_BUF_SIZE, MADV_HUGEPAGE);
 
                 // Ensure it is not zero-page backed
-                for (size_t i = 0; i < UARF_FR_SLOTS; i++) {
-                    memset(_ptr(buf_base_hva + i * UARF_FR_STRIDE), '0' + i,
-                           UARF_FR_STRIDE);
+                for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
+                    memset(_ptr(buf_base_hva + i * UARF_FRS_STRIDE), '0' + i,
+                           UARF_FRS_STRIDE);
                 }
 
-                map_mem_to_guest(vm, UARF_FR_RES, UARF_FR_RES_SIZE);
-                memset(_ptr(addr_gva2hva(vm, UARF_FR_RES)), 0, UARF_FR_RES_SIZE);
+                map_mem_to_guest(vm, UARF_FRS_RES, UARF_FRS_RES_SIZE);
+                memset(_ptr(addr_gva2hva(vm, UARF_FRS_RES)), 0, UARF_FRS_RES_SIZE);
             }
         }
 
@@ -504,11 +504,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
             switch (data->signal_mode) {
             case HOST_USER:
-                uarf_fr_flush();
+                uarf_frs_flush();
                 guest_data.spec_data = signal_data;
                 run_spec_global();
                 signal_data = guest_data.spec_data;
-                uarf_fr_reload();
+                uarf_frs_reload();
                 break;
             case HOST_SUPERVISOR:
                 // Ensure the required data is paged, as when executing in supervisor
@@ -521,9 +521,9 @@ UARF_TEST_CASE_ARG(basic, arg) {
                 **(volatile char **) signal_data.spec_dst_p_p;
                 *(volatile char *) signal_data.fr_buf_p;
 
-                uarf_fr_flush();
+                uarf_frs_flush();
                 uarf_rap_call(uarf_run_spec, &signal_data);
-                uarf_fr_reload();
+                uarf_frs_reload();
                 break;
             case GUEST_USER:
                 guest_data.spec_data = signal_data;
@@ -547,16 +547,16 @@ UARF_TEST_CASE_ARG(basic, arg) {
 #ifdef IN_EVALUATION_MODE
         uint64_t *res =
             (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR)
-                ? addr_gva2hva(vm, UARF_FR_RES)
-                : _ptr(UARF_FR_RES);
+                ? addr_gva2hva(vm, UARF_FRS_RES)
+                : _ptr(UARF_FRS_RES);
 
         printf("%lu\t%lu\n", res[SECRET], data->num_rounds);
-        uarf_fr_reset();
+        uarf_frs_reset();
 #else
         if (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR) {
-            uint64_t *res = addr_gva2hva(vm, UARF_FR_RES);
-            for (size_t i = 0; i < UARF_FR_SLOTS; i++) {
-                ((uint64_t *) UARF_FR_RES)[i] += res[i];
+            uint64_t *res = addr_gva2hva(vm, UARF_FRS_RES);
+            for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
+                ((uint64_t *) UARF_FRS_RES)[i] += res[i];
             }
         }
 #endif
@@ -573,10 +573,10 @@ UARF_TEST_CASE_ARG(basic, arg) {
     }
 
 #ifndef IN_EVALUATION_MODE
-    uarf_fr_print();
+    uarf_frs_print();
 #endif
 
-    uarf_fr_deinit();
+    uarf_frs_deinit();
 
     UARF_TEST_PASS();
 }
