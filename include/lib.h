@@ -187,7 +187,8 @@ static __always_inline void uarf_ibrs(void) {
 }
 
 static __always_inline void uarf_ibpb(void) {
-    uarf_wrmsr_set_user(MSR_PRED_CMD, MSR_PRED_CMD__IBPB);
+    // Write only, error on read
+    uarf_wrmsr_user(MSR_PRED_CMD, BIT(MSR_PRED_CMD__IBPB));
 }
 
 static __always_inline void uarf_auto_ibrs_on(void) {
