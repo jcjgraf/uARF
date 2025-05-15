@@ -15,16 +15,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import ArrayLike
 
-CWD = Path(__file__)
+if len(sys.argv) != 2:
+    print("Require positional argument: Path to data directory")
+    sys.exit(1)
 
-UARF_PATH: Path = Path(os.environ.get("UARF_PATH", Path.home() / "uARF"))
-DATA_PATH: Path = UARF_PATH / "data"
+data_path = Path(sys.argv[1])
 
-if not UARF_PATH.is_dir():
-    print(f"Uarf repo does not exist at '{UARF_PATH}'")
-
-if not DATA_PATH.is_dir():
-    print(f"Uarf data does not exist at '{DATA_PATH}'")
+if not data_path.is_dir():
+    print(f"Uarf data does not exist at '{data_path}'")
+    sys.exit(1)
 
 
 class Domain(Enum):
@@ -39,19 +38,16 @@ class Domain(Enum):
 domains = [e.value for e in Domain]
 
 
-HOST = "cn128"
-
-#      Host     __FROM     _TO       __#Cands   __#Rep    __#Train  __Mitig    .raw
+#      Host   __FROM   _TO     __#Cands __#Rep   _#Train  (Other) .raw
 FILENAME_PATTERN = re.compile(
-    r"^([^_]+)__([^_]+)_([^_]+)__([^_]+)__([^_]+)__([^_]+)__([^\.]+).raw"
+    r"^([^_]+)__([^_]+)_([^_]+)__([^_]+)__([^_]+)__([^_]+)([^\.]*).raw"
 )
 
 all_data_files: list[tuple[Path, Match[str]]] = [
-    (DATA_PATH / e, match)
-    for e in os.listdir(DATA_PATH)
+    (data_path / e, match)
+    for e in os.listdir(data_path)
     if (match := FILENAME_PATTERN.match(e)) is not None
 ]
-
 
 # hits = [Node][Key]
 num_hits: dict[str, dict[str, ArrayLike]] = {}
@@ -70,9 +66,11 @@ for t in all_data_files:
     num_cands = m.group(4)
     num_reps = m.group(5)
     num_train = m.group(6)
-    mitigation = m.group(7)
+    other = m.group(7)
 
-    key = f"{num_cands}__{num_reps}__{num_train}__{mitigation}"
+    key = (
+        f"{num_cands}__{num_reps}__{num_train}{other}"
+    )
 
     # TODO: Assert that format is correct
     hits, total = map(int, open(cmp_file, "r").read().strip().split("\t"))
@@ -91,6 +89,8 @@ for t in all_data_files:
 
     num_hits[node][key][x][y] = signal
 
+print(num_hits)
+
 for node in num_hits.keys():
     keys = list(num_hits[node].keys())
 
@@ -108,6 +108,10 @@ for node in num_hits.keys():
         fig, ax = plt.subplots()
         cax = ax.imshow(matrix, interpolation="nearest", cmap="viridis", vmax=1, vmin=0)
 
+        for x in range(len(to_values)):
+            for y in range(len(from_values)):
+                text = ax.text(y, x, matrix[x, y], ha="center", va="center", color="w")
+
         # Draw lines
         for i in range(4):
             plt.hlines(i - 0.5, -0.5, 3.5, color="black")
@@ -115,7 +119,7 @@ for node in num_hits.keys():
 
         # Label axes
         ax.xaxis.tick_top()
-        ax.xaxis.set_label_position('top') 
+        ax.xaxis.set_label_position("top")
         ax.set_xticks(np.arange(len(to_values)))
         ax.set_yticks(np.arange(len(from_values)))
         ax.set_xticklabels(to_values)
@@ -131,6 +135,5 @@ for node in num_hits.keys():
         # Show the plot
         # plt.tight_layout()
         # plt.show()
-        out_path = DATA_PATH / f"{node}__{key}.png"
+        out_path = data_path / f"{node}__{key}.png"
         plt.savefig(out_path, bbox_inches="tight", pad_inches=0.0)
-
