@@ -152,7 +152,7 @@ index d8288374078e..f8cbccc06e49 100644
 +	segp->limit = sizeof(struct x86_hw_tss) - 1;
  	segp->selector = selector;
 -	segp->type = 0xb;
-+	segp->type = 0x9; // 0x9 means available
++	segp->type = 0xb; // needs to be busy to work on Intel
  	segp->present = 1;
 +
 +	struct x86_hw_tss *tss = addr_gva2hva(vm, vm->tss);
