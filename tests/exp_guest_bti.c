@@ -176,6 +176,8 @@ struct TestCaseData {
     enum mode train_mode;
     enum mode signal_mode;
     bool auto_ibrs;
+    bool fp_test;
+    bool fn_test;
 };
 
 struct GuestData {
@@ -387,11 +389,15 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
     uarf_ibpb();
 
-    if (data->auto_ibrs) {
-        uarf_auto_ibrs_on();
-    }
-    else {
-        uarf_auto_ibrs_off();
+    // if (data->auto_ibrs) {
+    //     uarf_auto_ibrs_on();
+    // }
+    // else {
+    //     uarf_auto_ibrs_off();
+    // }
+
+    if (data->fp_test) {
+        data->num_train_rounds = 0;
     }
 
     for (size_t c = 0; c < data->num_cands; c++) {
@@ -413,7 +419,7 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
         UarfSpecData signal_data = {
             .spec_prim_p = stub_main.addr,
-            .spec_dst_p_p = _ul(&stub_dummy.addr),
+            .spec_dst_p_p = data->fn_test ? _ul(&stub_gadget.addr) : _ul(&stub_dummy.addr),
             // .spec_dst_p_p = _ul(&stub_gadget.addr),
             .fr_buf_p = UARF_FRS_BUF,
             .secret = SECRET,
@@ -749,18 +755,20 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         .seed = seed++,
         .num_cands = -1,
         .num_rounds = -1,
-        .num_train_rounds = -1,
+        .num_train_rounds = 1,
         .train_mode = -1,
         .signal_mode = -1,
-        .jita_main = &jita_main_jmp,
+        .jita_main = &jita_main_call,
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
         .match_history = true,
         .auto_ibrs = true,
+        .fp_test = false,
+        .fn_test = false,
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:c:r:u:ah")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:c:r:pnjh")) != -1) {
         switch (opt) {
         case 't': {
             if (data[0].train_mode != -1) {
@@ -790,18 +798,25 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             data[0].num_rounds = atoi(optarg);
             break;
         };
-        case 'u': {
-            if (data[0].num_train_rounds != -1) {
+        case 'p': {
+            if (data[0].fp_test) {
                 exit(ERRNO_INVALID_ARGUMENT);
             }
-            data[0].num_train_rounds = atoi(optarg);
+            data[0].fp_test = true;
             break;
         };
-        case 'a': {
-            if (!data[0].auto_ibrs) {
+        case 'n': {
+            if (data[0].fn_test) {
                 exit(ERRNO_INVALID_ARGUMENT);
             }
-            data[0].auto_ibrs = false;
+            data[0].fn_test = true;
+            break;
+        };
+        case 'j': {
+            if (data[0].jita_main == &jita_main_jmp) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            data[0].auto_ibrs = &jita_main_jmp;
             break;
         };
         case 'h': {
@@ -811,12 +826,11 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             printf("  -h                Show this help menu.\n");
             printf("  -t <DOMAIN>       Training domain (in HU, HS, GU, GS).\n");
             printf("  -s <DOMAIN>       Signaling domain (in HU, HS, GU, GS).\n");
-            printf("  -c <CANDIDATES>   Number of repetitions with re-randomized "
-                   "addresses.\n");
-            printf("  -r <ROUNDS>       Number of repetitions per candidate.\n");
-            printf(
-                "  -u <TRAINING>     Number of repetitions of the training per round.\n");
-            printf("  -a                If set, disable AutoIBRS.\n");
+            printf("  -c <CANDIDATES>   Number of re-randomization of addresses.\n");
+            printf("  -r <ROUNDS>       Number of repetitions per address.\n");
+            printf("  -p                IF set, measure false positive.\n");
+            printf("  -n                IF set, measure false negative.\n");
+            printf("  -j                IF set, use ind jmp instead of call.\n");
             printf("  -h                Show this help menu.\n");
             printf("\n");
             break;
