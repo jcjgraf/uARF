@@ -18,4 +18,15 @@ microcode       : 0x12c
 ```
 
 ### Test Information
-- `UARF_FRS_THRESHOLD 400`
+
+#### Performance
+- Signal in HU: `UARF_FRS_THRESHOLD 600`
+- Signal in HS: `UARF_FRS_THRESHOLD 600`
+- Signal in GU: `UARF_FRS_THRESHOLD `
+- Signal in GS: `UARF_FRS_THRESHOLD `
+
+#### Efficiency
+- Signal in HU: `UARF_FRS_THRESHOLD 300`
+- Signal in HS: `UARF_FRS_THRESHOLD 500`
+- Signal in GU: `UARF_FRS_THRESHOLD 650`
+- Signal in GS: `UARF_FRS_THRESHOLD `
