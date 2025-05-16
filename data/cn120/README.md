@@ -29,4 +29,4 @@ microcode       : 0x12c
 - Signal in HU: `UARF_FRS_THRESHOLD 300`
 - Signal in HS: `UARF_FRS_THRESHOLD 500`
 - Signal in GU: `UARF_FRS_THRESHOLD 650`
-- Signal in GS: `UARF_FRS_THRESHOLD `
+- Signal in GS: `UARF_FRS_THRESHOLD 650`
