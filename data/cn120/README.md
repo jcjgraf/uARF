@@ -19,11 +19,13 @@ microcode       : 0x12c
 
 ### Test Information
 
+- Pin the frequency of the core to 800 MHz using `cpupower`
+
 #### Performance
 - Signal in HU: `UARF_FRS_THRESHOLD 600`
 - Signal in HS: `UARF_FRS_THRESHOLD 600`
-- Signal in GU: `UARF_FRS_THRESHOLD `
-- Signal in GS: `UARF_FRS_THRESHOLD `
+- Signal in GU: `UARF_FRS_THRESHOLD 800`
+- Signal in GS: `UARF_FRS_THRESHOLD 700`
 
 #### Efficiency
 - Signal in HU: `UARF_FRS_THRESHOLD 300`
