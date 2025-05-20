@@ -18,7 +18,7 @@ int uarf_pfc_init(UarfPfc *pfc, uint64_t config) {
     pe.config = pfc->config;
     pe.config1 = pfc->config1;
     pe.config2 = pfc->config2;
-    pe.config3 = pfc->config3;
+    // pe.config3 = pfc->config3;
     pe.sample_type = PERF_SAMPLE_CPU | PERF_SAMPLE_RAW;
     // pe.disabled = 1;
     // pe.exclude_user = 1;
