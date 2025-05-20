@@ -102,13 +102,15 @@
 
 #define ERRNO_GENERAL          1
 #define ERRNO_INVALID_ARGUMENT 2
+#define ERRNO_VM 3
 
 #define SECRET 5
 
 // Ealuation mode enable
 //  - Continuously dump results
 //  - Instant quit on error
-#define IN_EVALUATION_MODE
+// #define IN_EVALUATION_MODE
+static bool IN_EVALUATION_MODE = false;
 
 #ifdef UARF_LOG_TAG
 #undef UARF_LOG_TAG
@@ -276,6 +278,12 @@ static void guest_run_fr_spec_user(void) {
     run_spec_global();
     uarf_frs_reload();
 
+    uint64_t c = uarf_frs_get_cached(1000);
+    uint64_t u = uarf_frs_get_uncached(1000);
+
+    GUEST_PRINTF("c: %lu\n", c);
+    GUEST_PRINTF("u: %lu\n", u);
+
     // Return back to supervisor, such that we do no get troubles when recycling
     // the VM
     uarf_user2supervisor();
@@ -348,7 +356,7 @@ static void uarf_guest_run(struct kvm_vcpu *vcpu) {
             REPORT_GUEST_ASSERT(uc);
             break;
         case UCALL_PRINTF:
-            printf("guest | %s", uc.buffer);
+            UARF_LOG_INFO("guest | %s", uc.buffer);
             break;
         case UCALL_NONE:
             printf("Received none, of type: ");
@@ -358,6 +366,7 @@ static void uarf_guest_run(struct kvm_vcpu *vcpu) {
                 printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
                 printf("Most likely something went wrong. VM quit\n");
                 printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+                exit(ERRNO_VM);
                 return;
             default:
                 printf("%s\nContinue\n", exit_reason_str(vcpu->run->exit_reason));
@@ -376,8 +385,9 @@ UARF_TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
 
-    UARF_LOG_INFO("%s -> %s, autoIBRS %s\n", MODE_STR[data->train_mode],
-                  MODE_STR[data->signal_mode], data->auto_ibrs ? "yes" : "no");
+    UARF_LOG_INFO("%s -> %s, num_cands: %u, num_rounds: %u, num_train: %u, fp_test: %b, fn_test: %b\n",
+                  MODE_STR[data->train_mode], MODE_STR[data->signal_mode],
+                  data->num_cands, data->num_rounds, data->num_train_rounds, data->fp_test, data->fn_test);
 
     uint64_t extra_pages = 10 * (3 + 512);
 
@@ -419,8 +429,8 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
         UarfSpecData signal_data = {
             .spec_prim_p = stub_main.addr,
-            .spec_dst_p_p = data->fn_test ? _ul(&stub_gadget.addr) : _ul(&stub_dummy.addr),
-            // .spec_dst_p_p = _ul(&stub_gadget.addr),
+            .spec_dst_p_p =
+                data->fn_test ? _ul(&stub_gadget.addr) : _ul(&stub_dummy.addr),
             .fr_buf_p = UARF_FRS_BUF,
             .secret = SECRET,
             .hist = h2,
@@ -469,6 +479,9 @@ UARF_TEST_CASE_ARG(basic, arg) {
                 memset(_ptr(addr_gva2hva(vm, UARF_FRS_RES)), 0, UARF_FRS_RES_SIZE);
             }
         }
+
+        UARF_LOG_INFO("Cache: %lu\n", uarf_frs_get_cached(1000));
+        UARF_LOG_INFO("Uncache: %lu\n", uarf_frs_get_uncached(1000));
 
         for (size_t r = 0; r < data->num_rounds; r++) {
             for (size_t t = 0; t < data->num_train_rounds; t++) {
@@ -549,8 +562,8 @@ UARF_TEST_CASE_ARG(basic, arg) {
                 break;
             }
         }
-
-#ifdef IN_EVALUATION_MODE
+        
+        if (IN_EVALUATION_MODE) {
         uint64_t *res =
             (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR)
                 ? addr_gva2hva(vm, UARF_FRS_RES)
@@ -558,15 +571,14 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
         printf("%lu\t%lu\n", res[SECRET], data->num_rounds);
         uarf_frs_reset();
-#else
+        } else {
         if (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR) {
             uint64_t *res = addr_gva2hva(vm, UARF_FRS_RES);
             for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
                 ((uint64_t *) UARF_FRS_RES)[i] += res[i];
             }
         }
-#endif
-
+        }
         if (vm) {
             // NOTE: Be sure to have extracted the results before if signaling was done in
             // the guest
@@ -578,9 +590,9 @@ UARF_TEST_CASE_ARG(basic, arg) {
         uarf_jita_deallocate(data->jita_dummy, &stub_dummy);
     }
 
-#ifndef IN_EVALUATION_MODE
-    uarf_frs_print();
-#endif
+    if (! IN_EVALUATION_MODE) {
+        uarf_frs_print();
+    }
 
     uarf_frs_deinit();
 
@@ -751,11 +763,12 @@ size_t get_test_data_manual(uint32_t seed) {
 }
 
 int get_test_data_arg(uint32_t seed, int argc, char **argv) {
+    UARF_LOG_TRACE("(seed: %u, argc: %d: argv: %p)\n", seed, argc, argv);
     data[0] = (struct TestCaseData) {
         .seed = seed++,
         .num_cands = -1,
         .num_rounds = -1,
-        .num_train_rounds = 1,
+        .num_train_rounds = 10,
         .train_mode = -1,
         .signal_mode = -1,
         .jita_main = &jita_main_call,
@@ -768,7 +781,7 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:c:r:pnjh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:c:r:pnjeh")) != -1) {
         switch (opt) {
         case 't': {
             if (data[0].train_mode != -1) {
@@ -816,7 +829,14 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             if (data[0].jita_main == &jita_main_jmp) {
                 exit(ERRNO_INVALID_ARGUMENT);
             }
-            data[0].auto_ibrs = &jita_main_jmp;
+            data[0].jita_main = &jita_main_jmp;
+            break;
+        };
+        case 'e': {
+            if (IN_EVALUATION_MODE) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            IN_EVALUATION_MODE = true;
             break;
         };
         case 'h': {
@@ -831,6 +851,7 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             printf("  -p                IF set, measure false positive.\n");
             printf("  -n                IF set, measure false negative.\n");
             printf("  -j                IF set, use ind jmp instead of call.\n");
+            printf("  -e                Evaluation mode, print results only.\n");
             printf("  -h                Show this help menu.\n");
             printf("\n");
             break;
@@ -858,22 +879,31 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         exit(ERRNO_INVALID_ARGUMENT);
     }
 
-    if (data[0].num_train_rounds == -1) {
-        UARF_LOG_ERROR("Argument -u is required\n");
-        exit(ERRNO_INVALID_ARGUMENT);
-    }
-
     return 1;
 }
 
 UARF_TEST_SUITE_ARG(argc, argv) {
-#ifdef IN_EVALUATION_MODE
-    uarf_log_system_base_level = UARF_LOG_LEVEL_ERROR;
-#else
-    uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
-#endif
 
     uint32_t seed = uarf_get_seed();
+    size_t data_i;
+
+    if (argc == 1) {
+        UARF_LOG_DEBUG("Run manual\n");
+        data_i = get_test_data_manual(seed);
+    }
+    else {
+        UARF_LOG_DEBUG("Run arg\n");
+        data_i = get_test_data_arg(seed, argc, argv);
+    }
+
+    uarf_assert(data_i < sizeof(data) / sizeof(data[0]));
+
+    if (IN_EVALUATION_MODE) {
+        uarf_log_system_base_level = UARF_LOG_LEVEL_ERROR;
+    } else {
+        uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
+    }
+
     UARF_LOG_INFO("Using seed: %u\n", seed);
     uarf_pi_init();
     uarf_rap_init();
@@ -903,19 +933,6 @@ UARF_TEST_SUITE_ARG(argc, argv) {
 
     uarf_jita_push_psnip(&jita_gadget, &psnip_dst_gadget);
     uarf_jita_push_psnip(&jita_dummy, &psnip_dst_dummy);
-
-    size_t data_i;
-
-    if (argc == 1) {
-        UARF_LOG_DEBUG("Run manual\n");
-        data_i = get_test_data_manual(seed);
-    }
-    else {
-        UARF_LOG_DEBUG("Run arg\n");
-        data_i = get_test_data_arg(seed, argc, argv);
-    }
-
-    uarf_assert(data_i < sizeof(data) / sizeof(data[0]));
 
     for (size_t i = 0; i < data_i; i++) {
         UARF_TEST_RUN_CASE_ARG(basic, data + i);

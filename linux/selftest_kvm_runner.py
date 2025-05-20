@@ -69,8 +69,10 @@ class Config:
     num_cands: int
     reps_per_cand: int
     cand_batch: int
-    num_training: int
     autoibrs_on: bool  # TODO: make more generic
+    fp_test: bool
+    fn_test: bool
+    use_jmp: bool
 
     def __init__(
         self,
@@ -78,8 +80,9 @@ class Config:
         sd: Domain,
         num_measures: int,
         rerand_after: int,
-        measure_fp: bool,
-        autoibrs_on: bool,
+        use_jmp: bool,
+        fp_test: bool,
+        fn_test: bool,
     ) -> None:
         assert (
             num_measures % rerand_after == 0
@@ -91,9 +94,11 @@ class Config:
         self.num_measures = num_measures
         self.num_cands = num_measures // rerand_after
         self.reps_per_cand = rerand_after
-        self.num_training = 0 if measure_fp else 1
         self.cand_batch = BATCH_RERAND_SIZE
-        self.autoibrs_on = autoibrs_on
+        self.autoibrs_on = True
+        self.fp_test = fp_test
+        self.fn_test = fn_test
+        self.use_jmp = use_jmp
 
         assert (
             self.num_cands % self.cand_batch == 0
@@ -105,8 +110,9 @@ class Config:
             f"{self.td.value}_{self.sd.value}__"
             f"{self.num_cands}__"
             f"{self.reps_per_cand}__"
-            f"{self.num_training}__"
-            f"autoibrs_{'on' if self.autoibrs_on else 'off'}"
+            f"{'jmp' if self.use_jmp else 'call'}"
+            f"{'__fp' if self.fp_test else ''}"
+            f"{'__fn' if self.fn_test else ''}"
         )
 
     def identifier(self) -> str:
@@ -117,30 +123,36 @@ class Config:
 
 
 # ===== START CONFIG ===== #
-NUM_MEASURES = 10000
+NUM_MEAS = 10000
 RERAND_BATCH = 10
 
 _cfgs: list[list[Config]] = [
-    # AutoIBRS
-    [Config(Domain.HU, d, NUM_MEASURES, RERAND_BATCH, False, True) for d in Domain],
-    [Config(Domain.HS, d, NUM_MEASURES, RERAND_BATCH, False, True) for d in Domain],
-    [Config(Domain.GU, d, NUM_MEASURES, RERAND_BATCH, False, True) for d in Domain],
-    [Config(Domain.GS, d, NUM_MEASURES, RERAND_BATCH, False, True) for d in Domain],
-    # No AutoIBRS
-    [Config(Domain.HU, d, NUM_MEASURES, RERAND_BATCH, False, False) for d in Domain],
-    [Config(Domain.HS, d, NUM_MEASURES, RERAND_BATCH, False, False) for d in Domain],
-    [Config(Domain.GU, d, NUM_MEASURES, RERAND_BATCH, False, False) for d in Domain],
-    [Config(Domain.GS, d, NUM_MEASURES, RERAND_BATCH, False, False) for d in Domain],
-    # AutoIBRS FP Test
-    [Config(Domain.HU, d, NUM_MEASURES, RERAND_BATCH, True, True) for d in Domain],
-    [Config(Domain.HS, d, NUM_MEASURES, RERAND_BATCH, True, True) for d in Domain],
-    [Config(Domain.GU, d, NUM_MEASURES, RERAND_BATCH, True, True) for d in Domain],
-    [Config(Domain.GS, d, NUM_MEASURES, RERAND_BATCH, True, True) for d in Domain],
-    # No AutoIBRS FP Test
-    [Config(Domain.HU, d, NUM_MEASURES, RERAND_BATCH, True, False) for d in Domain],
-    [Config(Domain.HS, d, NUM_MEASURES, RERAND_BATCH, True, False) for d in Domain],
-    [Config(Domain.GU, d, NUM_MEASURES, RERAND_BATCH, True, False) for d in Domain],
-    [Config(Domain.GS, d, NUM_MEASURES, RERAND_BATCH, True, False) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, False, False, False) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, False, True, False) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, False, False, True) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, True, False, False) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, True, True, False) for d in Domain],
+    [Config(d, Domain.GS, NUM_MEAS, RERAND_BATCH, True, False, True) for d in Domain],
+    # # Use ind. Call
+    # [Config(Domain.HU, d, NUM_MEAS, RERAND_BATCH, False, False, False) for d in Domain],
+    # [Config(Domain.HS, d, NUM_MEAS, RERAND_BATCH, False, False, False) for d in Domain],
+    # [Config(Domain.GU, d, NUM_MEAS, RERAND_BATCH, False, False, False) for d in Domain],
+    # [Config(Domain.GS, d, NUM_MEAS, RERAND_BATCH, False, False, False) for d in Domain],
+    # # Use ind. Jump
+    # [Config(Domain.HU, d, NUM_MEAS, RERAND_BATCH, True, False, False) for d in Domain],
+    # [Config(Domain.HS, d, NUM_MEAS, RERAND_BATCH, True, False, False) for d in Domain],
+    # [Config(Domain.GU, d, NUM_MEAS, RERAND_BATCH, True, False, False) for d in Domain],
+    # [Config(Domain.GS, d, NUM_MEAS, RERAND_BATCH, True, False, False) for d in Domain],
+    # # FP for Call
+    # [Config(Domain.HU, d, 1000, RERAND_BATCH, False, True, False) for d in Domain],
+    # [Config(Domain.HS, d, 1000, RERAND_BATCH, False, True, False) for d in Domain],
+    # [Config(Domain.GU, d, 1000, RERAND_BATCH, False, True, False) for d in Domain],
+    # [Config(Domain.GS, d, 1000, RERAND_BATCH, False, True, False) for d in Domain],
+    # # FN for Call
+    # [Config(Domain.HU, d, 1000, RERAND_BATCH, False, False, True) for d in Domain],
+    # [Config(Domain.HS, d, 1000, RERAND_BATCH, False, False, True) for d in Domain],
+    # [Config(Domain.GU, d, 1000, RERAND_BATCH, False, False, True) for d in Domain],
+    # [Config(Domain.GS, d, 1000, RERAND_BATCH, False, False, True) for d in Domain],
 ]
 
 cfgs = list(itertools.chain.from_iterable(_cfgs))
@@ -151,9 +163,7 @@ def run_config(cfg: Config, args: argparse.Namespace, out_dir: Path) -> None:
     raw_out_file = out_dir / (cfg.identifier() + ".raw")
     cmp_out_file = out_dir / (cfg.identifier() + ".cmp")
 
-    print(
-        f"Running config {cfg.identifier()}:\n\trawfile: {raw_out_file}\n\t cmpfile: {cmp_out_file}"
-    )
+    print(f"Running config {cfg.identifier()}:\n")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if raw_out_file.exists():
@@ -191,10 +201,11 @@ def run_config(cfg: Config, args: argparse.Namespace, out_dir: Path) -> None:
             "-c",
             f"{cfg.cand_batch}",
             "-r",
-            str(cfg.reps_per_cand),
-            "-u",
-            str(cfg.num_training),
-            f"{'-a' if not cfg.autoibrs_on else ''}",
+            f"{cfg.reps_per_cand}",
+            f"{'-p' if cfg.fp_test else ''}",
+            f"{'-n' if cfg.fn_test else ''}",
+            f"{'-j' if cfg.use_jmp else ''}",
+            "-e",
         ]
 
         # print(f"Running {' '.join(cmd)}")
@@ -222,6 +233,11 @@ def run_config(cfg: Config, args: argparse.Namespace, out_dir: Path) -> None:
                 print(e.stdout)
                 print(e.stderr)
                 sys.exit(1)
+            # VM Error
+            # Just pray and repeat
+            if e.returncode == 3:
+                print("?", end="", flush=True)
+                continue
 
             print(f"Unknown error: {e}")
             print(e.stdout)
@@ -233,15 +249,14 @@ def run_config(cfg: Config, args: argparse.Namespace, out_dir: Path) -> None:
         if args.dry_run:
             print(f"\n{out}")
 
-        raw_accum += out
-
         for line in out.splitlines():
             parts = line.split("\t")
-            assert len(parts) == 2
+            assert len(parts) == 2, f"invalid output: {parts}"
             hits, total = map(int, parts)
             hit_accum += hits
             n_accum += total
 
+        raw_accum += out
         succ_iter += cfg.cand_batch
 
     print("")
