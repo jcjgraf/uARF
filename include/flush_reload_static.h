@@ -155,8 +155,8 @@ static void __always_inline uarf_frs_reload_buf(uint64_t buf_addr) {
 #endif
 #pragma GCC unroll 8
     for (uint64_t i = 0; i < UARF_FRS_SLOTS; i++) {
-        size_t buf_i = (i * 421 + 9) & (UARF_FRS_SLOTS - 1);
-        // size_t buf_i = (i * 13 + 9) & (UARF_FRS_SLOTS - 1);
+        // size_t buf_i = (i * 421 + 9) & (UARF_FRS_SLOTS - 1);
+        size_t buf_i = (i * 13 + 9) & (UARF_FRS_SLOTS - 1);
         void *p = _ptr(buf_addr + UARF_FRS_STRIDE * buf_i);
         uint64_t dt = uarf_get_access_time(p);
         if (dt < UARF_FRS_THRESH) {
