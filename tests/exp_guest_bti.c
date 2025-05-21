@@ -102,7 +102,7 @@
 
 #define ERRNO_GENERAL          1
 #define ERRNO_INVALID_ARGUMENT 2
-#define ERRNO_VM 3
+#define ERRNO_VM               3
 
 #define SECRET 5
 
@@ -139,13 +139,12 @@ enum mode {
     HOST_SUPERVISOR,
     GUEST_USER,
     GUEST_SUPERVISOR,
+    GUEST2_USER,
+    GUEST2_SUPERVISOR,
 };
 
-const char *MODE_STR[4] = {
-    "HU",
-    "HS",
-    "GU",
-    "GS",
+const char *MODE_STR[6] = {
+    "HU", "HS", "GU", "GS", "G2U", "G2S",
 };
 
 enum mode get_mode_from_string(char *mode) {
@@ -162,8 +161,34 @@ enum mode get_mode_from_string(char *mode) {
     if (strcmp(mode, MODE_STR[GUEST_SUPERVISOR]) == 0) {
         return GUEST_SUPERVISOR;
     }
+    if (strcmp(mode, MODE_STR[GUEST2_USER]) == 0) {
+        return GUEST2_USER;
+    }
+    if (strcmp(mode, MODE_STR[GUEST2_SUPERVISOR]) == 0) {
+        return GUEST2_SUPERVISOR;
+    }
     UARF_LOG_ERROR("Invalid mode\n");
     exit(ERRNO_INVALID_ARGUMENT);
+}
+
+bool mode_in_guest(enum mode mode) {
+    switch (mode) {
+    case GUEST_USER:
+    case GUEST_SUPERVISOR:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool mode_in_guest2(enum mode mode) {
+    switch (mode) {
+    case GUEST2_USER:
+    case GUEST2_SUPERVISOR:
+        return true;
+    default:
+        return false;
+    }
 }
 
 struct TestCaseData {
@@ -180,6 +205,7 @@ struct TestCaseData {
     bool auto_ibrs;
     bool fp_test;
     bool fn_test;
+    bool guest_interleave; // Run another guest in-between training and signaling
 };
 
 struct GuestData {
@@ -278,8 +304,8 @@ static void guest_run_fr_spec_user(void) {
     run_spec_global();
     uarf_frs_reload();
 
-    uint64_t c = uarf_frs_get_cached(1000);
-    uint64_t u = uarf_frs_get_uncached(1000);
+    uint64_t c = uarf_get_access_time_cached(1000);
+    uint64_t u = uarf_get_access_time_uncached(1000);
 
     GUEST_PRINTF("c: %lu\n", c);
     GUEST_PRINTF("u: %lu\n", u);
@@ -288,6 +314,13 @@ static void guest_run_fr_spec_user(void) {
     // the VM
     uarf_user2supervisor();
 
+    GUEST_DONE();
+}
+
+/**
+ * Entry point that just returns again.
+ */
+static void guest_run_return(void) {
     GUEST_DONE();
 }
 
@@ -332,52 +365,99 @@ static void uarf_guest_run(struct kvm_vcpu *vcpu) {
     while (true) {
         vcpu_run(vcpu);
 
-#ifdef IN_EVALUATION_MODE
-        // Quit on any unexpected VM Exit
-        switch (get_ucall(vcpu, &uc)) {
-        case UCALL_DONE:
-            return;
-        default:
-            UARF_LOG_ERROR("Got invalid VMEXIT: %s. Exit\n",
-                           exit_reason_str(vcpu->run->exit_reason));
-            exit(ERRNO_GENERAL);
-        }
-#else
-        switch (get_ucall(vcpu, &uc)) {
-        case UCALL_SYNC:
-            printf("Got sync signal\n");
-            printf("With %lu arguments\n", uc.args[1]);
-            break;
-        case UCALL_DONE:
-            // printf("Got done signal\n");
-            return;
-        case UCALL_ABORT:
-            printf("Got abort signal\n");
-            REPORT_GUEST_ASSERT(uc);
-            break;
-        case UCALL_PRINTF:
-            UARF_LOG_INFO("guest | %s", uc.buffer);
-            break;
-        case UCALL_NONE:
-            printf("Received none, of type: ");
-            switch (vcpu->run->exit_reason) {
-            case KVM_EXIT_SHUTDOWN:
-                printf("Shutdown\n");
-                printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
-                printf("Most likely something went wrong. VM quit\n");
-                printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
-                exit(ERRNO_VM);
+        if (IN_EVALUATION_MODE) {
+            // Quit on any unexpected VM Exit
+            switch (get_ucall(vcpu, &uc)) {
+            case UCALL_DONE:
                 return;
             default:
-                printf("%s\nContinue\n", exit_reason_str(vcpu->run->exit_reason));
-                break;
+                UARF_LOG_ERROR("Got invalid VMEXIT: %s. Exit\n",
+                               exit_reason_str(vcpu->run->exit_reason));
+                exit(ERRNO_GENERAL);
             }
-            break;
-        default:
-            TEST_ASSERT(false, "Unexpected exit: %s",
-                        exit_reason_str(vcpu->run->exit_reason));
         }
-#endif
+        else {
+            switch (get_ucall(vcpu, &uc)) {
+            case UCALL_SYNC:
+                printf("Got sync signal\n");
+                printf("With %lu arguments\n", uc.args[1]);
+                break;
+            case UCALL_DONE:
+                // printf("Got done signal\n");
+                return;
+            case UCALL_ABORT:
+                printf("Got abort signal\n");
+                REPORT_GUEST_ASSERT(uc);
+                break;
+            case UCALL_PRINTF:
+                UARF_LOG_INFO("guest | %s", uc.buffer);
+                break;
+            case UCALL_NONE:
+                printf("Received none, of type: ");
+                switch (vcpu->run->exit_reason) {
+                case KVM_EXIT_SHUTDOWN:
+                    printf("Shutdown\n");
+                    printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+                    printf("Most likely something went wrong. VM quit\n");
+                    printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
+                    exit(ERRNO_VM);
+                    return;
+                default:
+                    printf("%s\nContinue\n", exit_reason_str(vcpu->run->exit_reason));
+                    break;
+                }
+                break;
+            default:
+                TEST_ASSERT(false, "Unexpected exit: %s",
+                            exit_reason_str(vcpu->run->exit_reason));
+            }
+        }
+    }
+}
+
+typedef struct Guest Guest;
+struct Guest {
+    struct kvm_vcpu *vcpu;
+    struct kvm_vm *vm;
+};
+
+void setup_guest(Guest *guest, bool signaling) {
+    UARF_LOG_TRACE("(guest: %p, signaling: %b)\n", guest, signaling);
+    uint64_t extra_pages = 10 * (3 + 512);
+
+    // Target does not matter yet, as we reset it anyways
+    guest->vm = __vm_create_with_one_vcpu(&guest->vcpu, extra_pages, guest_run_spec_user);
+
+    // Sync globals
+    sync_global_to_guest(guest->vm, guest_data);
+    sync_global_to_guest(guest->vm, stub_main);
+    sync_global_to_guest(guest->vm, stub_gadget);
+    sync_global_to_guest(guest->vm, stub_dummy);
+
+    // Map stubs
+    map_stub_to_guest(guest->vm, &stub_main);
+    map_stub_to_guest(guest->vm, &stub_gadget);
+    map_stub_to_guest(guest->vm, &stub_dummy);
+
+    // Map FR Buffer
+    map_mem_to_guest(guest->vm, UARF_FRS_BUF_BASE, UARF_FRS_BUF_SIZE);
+
+    // If signaling is in guest ensure buffer is paged and result buffer mapped
+    if (signaling) {
+        void *buf_base_hva = addr_gva2hva(guest->vm, UARF_FRS_BUF_BASE);
+
+        // NOTE: Hugepages are apparently supported in KVM selftest guest
+        // madvise fails
+        // madvise(addr_gva2hva(vm, _ul(buf_base_hva)),
+        // 	UARF_FRS_BUF_SIZE, MADV_HUGEPAGE);
+
+        // Ensure it is not zero-page backed
+        for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
+            memset(_ptr(buf_base_hva + i * UARF_FRS_STRIDE), '0' + i, UARF_FRS_STRIDE);
+        }
+
+        map_mem_to_guest(guest->vm, UARF_FRS_RES, UARF_FRS_RES_SIZE);
+        memset(_ptr(addr_gva2hva(guest->vm, UARF_FRS_RES)), 0, UARF_FRS_RES_SIZE);
     }
 }
 
@@ -385,11 +465,15 @@ UARF_TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
 
-    UARF_LOG_INFO("%s -> %s, num_cands: %u, num_rounds: %u, num_train: %u, fp_test: %b, fn_test: %b\n",
+    UARF_LOG_INFO("%s -> %s, num_cands: %u, num_rounds: %u, num_train: %u, fp_test: %b, "
+                  "fn_test: %b\n",
                   MODE_STR[data->train_mode], MODE_STR[data->signal_mode],
-                  data->num_cands, data->num_rounds, data->num_train_rounds, data->fp_test, data->fn_test);
+                  data->num_cands, data->num_rounds, data->num_train_rounds,
+                  data->fp_test, data->fn_test);
 
-    uint64_t extra_pages = 10 * (3 + 512);
+    Guest g1 = {.vcpu = NULL, .vm = NULL};
+    Guest g2 = {.vcpu = NULL, .vm = NULL};
+    Guest g3 = {.vcpu = NULL, .vm = NULL};
 
     uarf_frs_init();
 
@@ -409,6 +493,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
     if (data->fp_test) {
         data->num_train_rounds = 0;
     }
+
+    // if (data->guest_interleave) {
+    //     uint64_t extra_pages = 10 * (3 + 512);
+    //     g3.vm = __vm_create_with_one_vcpu(&g3.vcpu, extra_pages, guest_run_return);
+    // }
 
     for (size_t c = 0; c < data->num_cands; c++) {
         uarf_jita_allocate(data->jita_main, &stub_main, uarf_rand47());
@@ -438,50 +527,20 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
         // Have to create a new vCPU as we have not proper way to unmap prior mappings
         // when using different GVAs
-        struct kvm_vcpu *vcpu = NULL;
-        struct kvm_vm *vm = NULL;
-        if (data->train_mode == GUEST_USER || data->train_mode == GUEST_SUPERVISOR ||
-            data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR) {
-            // Target does not matter yet, as we reset it anyways
-            vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_run_spec_user);
-
-            // Sync globals
-            sync_global_to_guest(vm, guest_data);
-            sync_global_to_guest(vm, stub_main);
-            sync_global_to_guest(vm, stub_gadget);
-            sync_global_to_guest(vm, stub_dummy);
-
-            // Map stubs
-            map_stub_to_guest(vm, &stub_main);
-            map_stub_to_guest(vm, &stub_gadget);
-            map_stub_to_guest(vm, &stub_dummy);
-
-            // Map FR Buffer
-            map_mem_to_guest(vm, UARF_FRS_BUF_BASE, UARF_FRS_BUF_SIZE);
-
-            // If signaling is in guest ensure buffer is paged and result buffer mapped
-            if (data->signal_mode == GUEST_USER ||
-                data->signal_mode == GUEST_SUPERVISOR) {
-                void *buf_base_hva = addr_gva2hva(vm, UARF_FRS_BUF_BASE);
-
-                // NOTE: Hugepages are apparently supported in KVM selftest guest
-                // madvise fails
-                // madvise(addr_gva2hva(vm, _ul(buf_base_hva)),
-                // 	UARF_FRS_BUF_SIZE, MADV_HUGEPAGE);
-
-                // Ensure it is not zero-page backed
-                for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
-                    memset(_ptr(buf_base_hva + i * UARF_FRS_STRIDE), '0' + i,
-                           UARF_FRS_STRIDE);
-                }
-
-                map_mem_to_guest(vm, UARF_FRS_RES, UARF_FRS_RES_SIZE);
-                memset(_ptr(addr_gva2hva(vm, UARF_FRS_RES)), 0, UARF_FRS_RES_SIZE);
-            }
+        if (mode_in_guest(data->train_mode) || mode_in_guest(data->signal_mode)) {
+            setup_guest(&g1, mode_in_guest(data->signal_mode));
         }
 
-        UARF_LOG_INFO("Cache: %lu\n", uarf_frs_get_cached(1000));
-        UARF_LOG_INFO("Uncache: %lu\n", uarf_frs_get_uncached(1000));
+        if (mode_in_guest2(data->train_mode) || mode_in_guest2(data->signal_mode)) {
+            setup_guest(&g2, mode_in_guest2(data->signal_mode));
+        }
+
+        if (data->guest_interleave) {
+            setup_guest(&g3, false);
+        }
+
+        UARF_LOG_INFO("Cache: %lu\n", uarf_get_access_time_cached(1000));
+        UARF_LOG_INFO("Uncache: %lu\n", uarf_get_access_time_uncached(1000));
 
         for (size_t r = 0; r < data->num_rounds; r++) {
             for (size_t t = 0; t < data->num_train_rounds; t++) {
@@ -505,20 +564,44 @@ UARF_TEST_CASE_ARG(basic, arg) {
                     break;
                 case GUEST_USER:
                     guest_data.spec_data = train_data;
-                    sync_global_to_guest(vm, guest_data);
+                    sync_global_to_guest(g1.vm, guest_data);
 
-                    uarf_guest_set_rip(vcpu, guest_run_spec_user);
-                    uarf_guest_run(vcpu);
+                    uarf_guest_set_rip(g1.vcpu, guest_run_spec_user);
+                    uarf_guest_run(g1.vcpu);
+                    break;
+                case GUEST2_USER:
+                    guest_data.spec_data = train_data;
+                    sync_global_to_guest(g2.vm, guest_data);
 
+                    uarf_guest_set_rip(g2.vcpu, guest_run_spec_user);
+                    uarf_guest_run(g2.vcpu);
                     break;
                 case GUEST_SUPERVISOR:
                     guest_data.spec_data = train_data;
-                    sync_global_to_guest(vm, guest_data);
+                    sync_global_to_guest(g1.vm, guest_data);
 
-                    uarf_guest_set_rip(vcpu, guest_run_spec_supervisor);
-                    uarf_guest_run(vcpu);
+                    uarf_guest_set_rip(g1.vcpu, guest_run_spec_supervisor);
+                    uarf_guest_run(g1.vcpu);
+                    break;
+                case GUEST2_SUPERVISOR:
+                    guest_data.spec_data = train_data;
+                    sync_global_to_guest(g2.vm, guest_data);
+
+                    uarf_guest_set_rip(g2.vcpu, guest_run_spec_supervisor);
+                    uarf_guest_run(g2.vcpu);
                     break;
                 }
+            }
+
+            if (data->guest_interleave) {
+                UARF_LOG_DEBUG("Run interleaving vm\n");
+                guest_data.spec_data = train_data;
+                sync_global_to_guest(g3.vm, guest_data);
+
+                uarf_guest_set_rip(g3.vcpu, guest_run_spec_user);
+                uarf_guest_run(g3.vcpu);
+                // uarf_guest_set_rip(g3.vcpu, guest_run_return);
+                // uarf_guest_run(g3.vcpu);
             }
 
             switch (data->signal_mode) {
@@ -546,43 +629,74 @@ UARF_TEST_CASE_ARG(basic, arg) {
                 break;
             case GUEST_USER:
                 guest_data.spec_data = signal_data;
-                sync_global_to_guest(vm, guest_data);
+                sync_global_to_guest(g1.vm, guest_data);
 
-                uarf_guest_set_rip(vcpu, guest_run_fr_spec_user);
-                uarf_guest_run(vcpu);
+                uarf_guest_set_rip(g1.vcpu, guest_run_fr_spec_user);
+                uarf_guest_run(g1.vcpu);
+                // sync_global_from_guest(vm, guest_data);
+                break;
+            case GUEST2_USER:
+                guest_data.spec_data = signal_data;
+                sync_global_to_guest(g2.vm, guest_data);
+
+                uarf_guest_set_rip(g2.vcpu, guest_run_fr_spec_user);
+                uarf_guest_run(g2.vcpu);
                 // sync_global_from_guest(vm, guest_data);
                 break;
             case GUEST_SUPERVISOR:
                 guest_data.spec_data = signal_data;
-                sync_global_to_guest(vm, guest_data);
+                sync_global_to_guest(g1.vm, guest_data);
 
-                uarf_guest_set_rip(vcpu, guest_run_fr_spec_supervisor);
-                uarf_guest_run(vcpu);
+                uarf_guest_set_rip(g1.vcpu, guest_run_fr_spec_supervisor);
+                uarf_guest_run(g1.vcpu);
+                // sync_global_from_guest(vm, guest_data);
+                break;
+            case GUEST2_SUPERVISOR:
+                guest_data.spec_data = signal_data;
+                sync_global_to_guest(g2.vm, guest_data);
+
+                uarf_guest_set_rip(g2.vcpu, guest_run_fr_spec_supervisor);
+                uarf_guest_run(g2.vcpu);
                 // sync_global_from_guest(vm, guest_data);
                 break;
             }
         }
-        
-        if (IN_EVALUATION_MODE) {
-        uint64_t *res =
-            (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR)
-                ? addr_gva2hva(vm, UARF_FRS_RES)
-                : _ptr(UARF_FRS_RES);
 
-        printf("%lu\t%lu\n", res[SECRET], data->num_rounds);
-        uarf_frs_reset();
-        } else {
-        if (data->signal_mode == GUEST_USER || data->signal_mode == GUEST_SUPERVISOR) {
-            uint64_t *res = addr_gva2hva(vm, UARF_FRS_RES);
-            for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
-                ((uint64_t *) UARF_FRS_RES)[i] += res[i];
+        uint64_t *res;
+        if (mode_in_guest(data->signal_mode)) {
+            res = addr_gva2hva(g1.vm, UARF_FRS_RES);
+        }
+        else if (mode_in_guest2(data->signal_mode)) {
+            res = addr_gva2hva(g2.vm, UARF_FRS_RES);
+        }
+        else {
+            res = _ptr(UARF_FRS_RES);
+        }
+
+        if (res != _ptr(UARF_FRS_RES)) {
+            if (IN_EVALUATION_MODE) {
+                printf("%lu\t%u\n", res[SECRET], data->num_rounds);
+                uarf_frs_reset();
+            }
+            else {
+                for (size_t i = 0; i < UARF_FRS_SLOTS; i++) {
+                    ((uint64_t *) UARF_FRS_RES)[i] += res[i];
+                }
             }
         }
-        }
-        if (vm) {
+
+        if (g1.vm) {
             // NOTE: Be sure to have extracted the results before if signaling was done in
             // the guest
-            kvm_vm_free(vm);
+            kvm_vm_free(g1.vm);
+        }
+        if (g2.vm) {
+            // NOTE: Be sure to have extracted the results before if signaling was done in
+            // the guest
+            kvm_vm_free(g2.vm);
+        }
+        if (g3.vm) {
+            kvm_vm_free(g3.vm);
         }
 
         uarf_jita_deallocate(data->jita_main, &stub_main);
@@ -590,9 +704,13 @@ UARF_TEST_CASE_ARG(basic, arg) {
         uarf_jita_deallocate(data->jita_dummy, &stub_dummy);
     }
 
-    if (! IN_EVALUATION_MODE) {
+    if (!IN_EVALUATION_MODE) {
         uarf_frs_print();
     }
+
+    // if (g3.vm) {
+    //     kvm_vm_free(g3.vm);
+    // }
 
     uarf_frs_deinit();
 
@@ -610,17 +728,17 @@ size_t get_test_data_manual(uint32_t seed) {
     size_t data_i = 0;
     // clang-format off
 	// jmp*
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
-
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_USER, true, jita_main_jmp);
+	//
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
 
 	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
 	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
 
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
 
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_SUPERVISOR, HOST_USER, true, jita_main_jmp);
@@ -768,7 +886,7 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         .seed = seed++,
         .num_cands = -1,
         .num_rounds = -1,
-        .num_train_rounds = 10,
+        .num_train_rounds = 1,
         .train_mode = -1,
         .signal_mode = -1,
         .jita_main = &jita_main_call,
@@ -778,10 +896,11 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         .auto_ibrs = true,
         .fp_test = false,
         .fn_test = false,
+        .guest_interleave = false,
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:c:r:pnjeh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:c:r:pnjegh")) != -1) {
         switch (opt) {
         case 't': {
             if (data[0].train_mode != -1) {
@@ -839,6 +958,13 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             IN_EVALUATION_MODE = true;
             break;
         };
+        case 'g': {
+            if (data[0].guest_interleave) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            data[0].guest_interleave = true;
+            break;
+        };
         case 'h': {
             printf("Usage: [OPTIONS]\n");
             printf("\n");
@@ -852,8 +978,11 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             printf("  -n                IF set, measure false negative.\n");
             printf("  -j                IF set, use ind jmp instead of call.\n");
             printf("  -e                Evaluation mode, print results only.\n");
+            printf("  -g                Run some other guest in-between training and "
+                   "signaling.\n");
             printf("  -h                Show this help menu.\n");
             printf("\n");
+            exit(0);
             break;
         };
         }
@@ -883,7 +1012,6 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
 }
 
 UARF_TEST_SUITE_ARG(argc, argv) {
-
     uint32_t seed = uarf_get_seed();
     size_t data_i;
 
@@ -900,8 +1028,10 @@ UARF_TEST_SUITE_ARG(argc, argv) {
 
     if (IN_EVALUATION_MODE) {
         uarf_log_system_base_level = UARF_LOG_LEVEL_ERROR;
-    } else {
+    }
+    else {
         uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
+        uarf_log_system_level = UARF_LOG_LEVEL_INFO;
     }
 
     UARF_LOG_INFO("Using seed: %u\n", seed);
