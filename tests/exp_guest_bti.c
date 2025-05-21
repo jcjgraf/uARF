@@ -122,7 +122,7 @@ static bool IN_EVALUATION_MODE = false;
         .seed = seed++, .num_cands = 100, .num_rounds = 10, .num_train_rounds = 1,       \
         .jita_main = &main_jita, .jita_gadget = &jita_gadget, .jita_dummy = &jita_dummy, \
         .match_history = true, .train_mode = t_mode, .signal_mode = s_mode,              \
-        .auto_ibrs = a_ibrs,                                                             \
+        .autoibrs_off = a_ibrs,                                                          \
     }
 
 uarf_psnip_declare(history, psnip_history);
@@ -191,6 +191,23 @@ bool mode_in_guest2(enum mode mode) {
     }
 }
 
+/**
+ * Settings that AutoIBRS/eIBRS can have
+ */
+enum MitSet { MIT_SET_TURN_OFF, MIT_SET_TURN_ON, MIT_SET_DONT_CHANGE };
+
+enum MitSet get_mitset_from_string(char *mode) {
+    UARF_LOG_TRACE("(mode: %s)\n", mode);
+    if (strcmp(mode, "0") == 0) {
+        return MIT_SET_TURN_OFF;
+    }
+    if (strcmp(mode, "1") == 0) {
+        return MIT_SET_TURN_ON;
+    }
+    UARF_LOG_ERROR("Invalid mitset\n");
+    exit(ERRNO_INVALID_ARGUMENT);
+}
+
 struct TestCaseData {
     uint32_t seed;
     uint32_t num_cands;
@@ -202,7 +219,8 @@ struct TestCaseData {
     bool match_history;
     enum mode train_mode;
     enum mode signal_mode;
-    bool auto_ibrs;
+    enum MitSet autoibrs;
+    enum MitSet eibrs;
     bool fp_test;
     bool fn_test;
     bool guest_interleave; // Run another guest in-between training and signaling
@@ -465,11 +483,20 @@ UARF_TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
 
-    UARF_LOG_INFO("%s -> %s, num_cands: %u, num_rounds: %u, num_train: %u, fp_test: %b, "
-                  "fn_test: %b\n",
-                  MODE_STR[data->train_mode], MODE_STR[data->signal_mode],
+    UARF_LOG_INFO("%s -> %s,\n"
+                  "\tseed: %u\n"
+                  "\tnum_cands: %u\n"
+                  "\tnum_rounds: %u\n"
+                  "\tnum_train: %u\n"
+                  "\tmatch_history: %b\n"
+                  "\teIBRS: %d\n"
+                  "\tAutoIBRS: %d\n"
+                  "\tfp_test: %b\n"
+                  "\tfn_test: %b\n",
+                  MODE_STR[data->train_mode], MODE_STR[data->signal_mode], data->seed,
                   data->num_cands, data->num_rounds, data->num_train_rounds,
-                  data->fp_test, data->fn_test);
+                  data->match_history, data->eibrs, data->autoibrs, data->fp_test,
+                  data->fn_test);
 
     Guest g1 = {.vcpu = NULL, .vm = NULL};
     Guest g2 = {.vcpu = NULL, .vm = NULL};
@@ -483,12 +510,27 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
     uarf_ibpb();
 
-    // if (data->auto_ibrs) {
-    //     uarf_auto_ibrs_on();
-    // }
-    // else {
-    //     uarf_auto_ibrs_off();
-    // }
+    switch (data->autoibrs) {
+    case MIT_SET_TURN_ON:
+        uarf_autoibrs_on();
+        break;
+    case MIT_SET_TURN_OFF:
+        uarf_autoibrs_off();
+        break;
+    case MIT_SET_DONT_CHANGE:
+        break;
+    }
+
+    switch (data->eibrs) {
+    case MIT_SET_TURN_ON:
+        uarf_eibrs_on();
+        break;
+    case MIT_SET_TURN_OFF:
+        uarf_eibrs_off();
+        break;
+    case MIT_SET_DONT_CHANGE:
+        break;
+    }
 
     if (data->fp_test) {
         data->num_train_rounds = 0;
@@ -712,6 +754,29 @@ UARF_TEST_CASE_ARG(basic, arg) {
     //     kvm_vm_free(g3.vm);
     // }
 
+    // Reset back to how it was (assuming it got actually changed
+    // switch (data->autoibrs) {
+    // case MIT_SET_TURN_ON:
+    //     uarf_autoibrs_off();
+    //     break;
+    // case MIT_SET_TURN_OFF:
+    //     uarf_autoibrs_on();
+    //     break;
+    // case MIT_SET_DONT_CHANGE:
+    //     break;
+    // }
+    //
+    // switch (data->eibrs) {
+    // case MIT_SET_TURN_ON:
+    //     uarf_eibrs_off();
+    //     break;
+    // case MIT_SET_TURN_OFF:
+    //     uarf_eibrs_on();
+    //     break;
+    // case MIT_SET_DONT_CHANGE:
+    //     break;
+    // }
+
     uarf_frs_deinit();
 
     UARF_TEST_PASS();
@@ -734,8 +799,8 @@ size_t get_test_data_manual(uint32_t seed) {
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_USER, HOST_SUPERVISOR, true, jita_main_jmp);
 
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
-	data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, false, jita_main_jmp);
+	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_USER, true, jita_main_jmp);
 
 	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, false, jita_main_jmp);
 	// data[data_i++] = CREATE_TCD(HOST_USER, GUEST_SUPERVISOR, true, jita_main_jmp);
@@ -893,14 +958,15 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         .jita_gadget = &jita_gadget,
         .jita_dummy = &jita_dummy,
         .match_history = true,
-        .auto_ibrs = true,
+        .autoibrs = MIT_SET_DONT_CHANGE,
+        .eibrs = MIT_SET_DONT_CHANGE,
         .fp_test = false,
         .fn_test = false,
         .guest_interleave = false,
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:c:r:pnjegh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:c:r:pnjei:a:gh")) != -1) {
         switch (opt) {
         case 't': {
             if (data[0].train_mode != -1) {
@@ -958,6 +1024,20 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             IN_EVALUATION_MODE = true;
             break;
         };
+        case 'i': {
+            if (data[0].eibrs != MIT_SET_DONT_CHANGE) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            data[0].eibrs = get_mitset_from_string(optarg);
+            break;
+        };
+        case 'a': {
+            if (data[0].autoibrs != MIT_SET_DONT_CHANGE) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            data[0].autoibrs = get_mitset_from_string(optarg);
+            break;
+        };
         case 'g': {
             if (data[0].guest_interleave) {
                 exit(ERRNO_INVALID_ARGUMENT);
@@ -978,6 +1058,10 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             printf("  -n                IF set, measure false negative.\n");
             printf("  -j                IF set, use ind jmp instead of call.\n");
             printf("  -e                Evaluation mode, print results only.\n");
+            printf(
+                "  -i <0/1>          Disable/Enable eIBRS, otherwise leave unchanged.\n");
+            printf("  -a <0/1>          Disable/Enable AutoIBRS, otherwise remains "
+                   "unchanged.\n");
             printf("  -g                Run some other guest in-between training and "
                    "signaling.\n");
             printf("  -h                Show this help menu.\n");

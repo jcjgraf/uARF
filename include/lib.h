@@ -182,21 +182,58 @@ static __always_inline void uarf_wrmsr_clear_user(uint64_t msr, size_t bit) {
 #define MSR_STAR                    0xc0000081
 #define MSR_LSTAR                   0xc0000082
 
-static __always_inline void uarf_ibrs(void) {
-    uarf_wrmsr_set_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
-}
-
+/**
+ * Trigger an IBPB.
+ */
 static __always_inline void uarf_ibpb(void) {
     // Write only, error on read
     uarf_wrmsr_user(MSR_PRED_CMD, BIT(MSR_PRED_CMD__IBPB));
 }
 
-static __always_inline void uarf_auto_ibrs_on(void) {
+/**
+ * Enable IBRS.
+ */
+static __always_inline void uarf_ibrs_on(void) {
+    uarf_wrmsr_set_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
+}
+
+/**
+ * Disable IBRS.
+ */
+static __always_inline void uarf_ibrs_off(void) {
+    uarf_wrmsr_clear_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
+}
+
+/**
+ * Enable AutoIBRS.
+ */
+static __always_inline void uarf_autoibrs_on(void) {
     uarf_wrmsr_set_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
 }
 
-static __always_inline void uarf_auto_ibrs_off(void) {
+/**
+ * Disable AutoIBRS.
+ */
+static __always_inline void uarf_autoibrs_off(void) {
     uarf_wrmsr_clear_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+}
+
+/**
+ * Enable eIBRS.
+ *
+ * Systems supporting eIBRS do not have IBRS. But the same register is used.
+ */
+static __always_inline void uarf_eibrs_on(void) {
+    uarf_ibrs_on();
+}
+
+/**
+ * Disable eIBRS.
+ *
+ * However, disabling eIBRS does usually not work.
+ */
+static __always_inline void uarf_eibrs_off(void) {
+    uarf_ibrs_off();
 }
 
 static __always_inline unsigned long uarf_read_cr3(void) {
