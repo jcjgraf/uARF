@@ -5,10 +5,7 @@
 
 set -e
 
-# Path to root of uARF repo
-# Need to consider that script is usually run with sudo
-user_home=$(getent passwd $SUDO_USER | cut -d: -f6)
-UARF_PATH="${UARF_PATH:-$user_home/uARF}"
+UARF_PATH="${UARF_PATH:-$HOME/uARF}"
 
 # Enable only after reading potential globals
 set -u
