@@ -243,7 +243,7 @@ cd "$LINUX_PATH"
 if git show-ref --quiet refs/heads/$KERNEL_BR_NAME; then
     log_debug "Patching selftest"
     if [ "$force" = true ]; then
-        log_debug "Redo patching of selfts"
+        log_debug "Redo patching of selftest"
         rollback_kernel
         patch_selftest
     else
@@ -276,7 +276,7 @@ function add_selftest() {
         return
     fi
 
-    ln "$1" "$file"
+    ln -s "$1" "$file"
     git add "$file"
 
     local file_path="x86_64/rev_eng/${file%.c}"
