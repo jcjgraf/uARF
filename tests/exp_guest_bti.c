@@ -221,6 +221,7 @@ struct TestCaseData {
     enum mode signal_mode;
     enum MitSet autoibrs;
     enum MitSet eibrs;
+    bool ibrs;
     bool fp_test;
     bool fn_test;
     bool guest_interleave; // Run another guest in-between training and signaling
@@ -270,6 +271,14 @@ static void run_spec_global(void) {
                  "return_here%=:\n\t" ::"r"(data->spec_prim_p),
                  "c"(data)
                  : "rax", "rdx", "rdi", "rsi", "r8", "memory");
+}
+
+// Call `uarf_run_spec`, but disable IBRS
+static void run_spec_ibrs(void *arg) {
+    // Is run as privileged
+    uarf_ibrs_on();
+    uarf_run_spec(arg);
+    uarf_ibrs_off();
 }
 
 /**
@@ -322,12 +331,6 @@ static void guest_run_fr_spec_user(void) {
     run_spec_global();
     uarf_frs_reload();
 
-    uint64_t c = uarf_get_access_time_cached(1000);
-    uint64_t u = uarf_get_access_time_uncached(1000);
-
-    GUEST_PRINTF("c: %lu\n", c);
-    GUEST_PRINTF("u: %lu\n", u);
-
     // Return back to supervisor, such that we do no get troubles when recycling
     // the VM
     uarf_user2supervisor();
@@ -338,7 +341,9 @@ static void guest_run_fr_spec_user(void) {
 /**
  * Entry point that just returns again.
  */
-static void guest_run_return(void) {
+static void guest_run_cache_measure(void) {
+    GUEST_PRINTF("Cache: %lu\n", uarf_get_access_time_cached(1000));
+    GUEST_PRINTF("Uncache: %lu\n", uarf_get_access_time_uncached(1000));
     GUEST_DONE();
 }
 
@@ -491,11 +496,12 @@ UARF_TEST_CASE_ARG(basic, arg) {
                   "\tmatch_history: %b\n"
                   "\teIBRS: %d\n"
                   "\tAutoIBRS: %d\n"
+                  "\tIBRS: %b\n"
                   "\tfp_test: %b\n"
                   "\tfn_test: %b\n",
                   MODE_STR[data->train_mode], MODE_STR[data->signal_mode], data->seed,
                   data->num_cands, data->num_rounds, data->num_train_rounds,
-                  data->match_history, data->eibrs, data->autoibrs, data->fp_test,
+                  data->match_history, data->eibrs, data->autoibrs, data->ibrs, data->fp_test,
                   data->fn_test);
 
     Guest g1 = {.vcpu = NULL, .vm = NULL};
@@ -508,14 +514,14 @@ UARF_TEST_CASE_ARG(basic, arg) {
     stub_gadget = uarf_stub_init();
     stub_dummy = uarf_stub_init();
 
-    uarf_ibpb();
+    uarf_ibpb_user();
 
     switch (data->autoibrs) {
     case MIT_SET_TURN_ON:
-        uarf_autoibrs_on();
+        uarf_autoibrs_on_user();
         break;
     case MIT_SET_TURN_OFF:
-        uarf_autoibrs_off();
+        uarf_autoibrs_off_user();
         break;
     case MIT_SET_DONT_CHANGE:
         break;
@@ -523,10 +529,10 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
     switch (data->eibrs) {
     case MIT_SET_TURN_ON:
-        uarf_eibrs_on();
+        uarf_eibrs_on_user();
         break;
     case MIT_SET_TURN_OFF:
-        uarf_eibrs_off();
+        uarf_eibrs_off_user();
         break;
     case MIT_SET_DONT_CHANGE:
         break;
@@ -581,8 +587,17 @@ UARF_TEST_CASE_ARG(basic, arg) {
             setup_guest(&g3, false);
         }
 
-        UARF_LOG_INFO("Cache: %lu\n", uarf_get_access_time_cached(1000));
-        UARF_LOG_INFO("Uncache: %lu\n", uarf_get_access_time_uncached(1000));
+        if (mode_in_guest(data->signal_mode)) {
+            uarf_guest_set_rip(g1.vcpu, guest_run_cache_measure);
+            uarf_guest_run(g1.vcpu);
+
+        } else if (mode_in_guest2(data->signal_mode)) {
+            uarf_guest_set_rip(g2.vcpu, guest_run_cache_measure);
+            uarf_guest_run(g2.vcpu);
+        } else {
+            UARF_LOG_INFO("Cache: %lu\n", uarf_get_access_time_cached(1000));
+            UARF_LOG_INFO("Uncache: %lu\n", uarf_get_access_time_uncached(1000));
+        }
 
         for (size_t r = 0; r < data->num_rounds; r++) {
             for (size_t t = 0; t < data->num_train_rounds; t++) {
@@ -665,8 +680,16 @@ UARF_TEST_CASE_ARG(basic, arg) {
                 **(volatile char **) signal_data.spec_dst_p_p;
                 *(volatile char *) signal_data.fr_buf_p;
 
+                *(volatile char *) run_spec_ibrs;
+                *(volatile char *) uarf_ibrs_on;
+                *(volatile char *) uarf_ibrs_off;
+
                 uarf_frs_flush();
-                uarf_rap_call(uarf_run_spec, &signal_data);
+                if (data->ibrs) {
+                    uarf_rap_call(run_spec_ibrs, &signal_data);
+                } else {
+                    uarf_rap_call(uarf_run_spec, &signal_data);
+                }
                 uarf_frs_reload();
                 break;
             case GUEST_USER:
@@ -960,13 +983,14 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
         .match_history = true,
         .autoibrs = MIT_SET_DONT_CHANGE,
         .eibrs = MIT_SET_DONT_CHANGE,
+        .ibrs = false,
         .fp_test = false,
         .fn_test = false,
         .guest_interleave = false,
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:c:r:pnjei:a:gh")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:c:r:pnjei:a:goh")) != -1) {
         switch (opt) {
         case 't': {
             if (data[0].train_mode != -1) {
@@ -1045,6 +1069,13 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
             data[0].guest_interleave = true;
             break;
         };
+        case 'o': {
+            if (data[0].ibrs) {
+                exit(ERRNO_INVALID_ARGUMENT);
+            }
+            data[0].ibrs = true;
+            break;
+        };
         case 'h': {
             printf("Usage: [OPTIONS]\n");
             printf("\n");
@@ -1064,6 +1095,7 @@ int get_test_data_arg(uint32_t seed, int argc, char **argv) {
                    "unchanged.\n");
             printf("  -g                Run some other guest in-between training and "
                    "signaling.\n");
+            printf("  -o                Enable IBRS when signaling in supervisor.\n");
             printf("  -h                Show this help menu.\n");
             printf("\n");
             exit(0);

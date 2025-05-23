@@ -2,6 +2,7 @@
 
 #include "compiler.h"
 #include "kmod/pi.h"
+#include "kmod/rap.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -139,6 +140,9 @@ static __always_inline uint32_t uarf_cpuid_edx_user(uint32_t leaf) {
     return edx;
 }
 
+/**
+ * Read from MSR from privileged.
+ */
 static __always_inline uint64_t uarf_rdmsr(uint32_t msr_idx) {
     uint32_t low, high;
 
@@ -147,26 +151,60 @@ static __always_inline uint64_t uarf_rdmsr(uint32_t msr_idx) {
     return (((uint64_t) high) << 32) | low;
 }
 
+/**
+ * Read from MSR from user using PI module.
+ */
 static __always_inline uint64_t uarf_rdmsr_user(uint32_t msr) {
     return uarf_pi_rdmsr(msr);
 }
 
-static __always_inline void uarf_wrmsr(uint32_t msr_idx, uint64_t value) {
-    asm volatile("wrmsr" ::"c"(msr_idx), "a"((uint32_t) value),
+/**
+ * Write to MSR from privileged.
+ */
+static __always_inline void uarf_wrmsr(uint32_t idx, uint64_t value) {
+    asm volatile("wrmsr" ::"c"(idx), "a"((uint32_t) value),
                  "d"((uint32_t) (value >> 32)));
 }
 
-// Writes `value` into `msr`
-static __always_inline void uarf_wrmsr_user(uint32_t msr, uint64_t value) {
-    uarf_pi_wrmsr(msr, value);
+/**
+ * Write to MSR from user using PI module.
+ */
+static __always_inline void uarf_wrmsr_user(uint32_t idx, uint64_t value) {
+    uarf_pi_wrmsr(idx, value);
 }
 
-// Set bit at index `bit` of `ms` to 1
+/**
+ * Set single bit in MSR to 1, leaving all others unchanged, from privileged.
+ *
+ * Reads the MSR.
+ */
+static __always_inline void uarf_wrmsr_set(uint64_t msr, size_t bit) {
+    uarf_wrmsr(msr, BIT_SET(uarf_rdmsr(msr), bit));
+}
+
+/**
+ * Set single bit in MSR to 1, leaving all others unchanged, from user.
+ *
+ * Reads the MSR.
+ */
 static __always_inline void uarf_wrmsr_set_user(uint64_t msr, size_t bit) {
     uarf_wrmsr_user(msr, BIT_SET(uarf_rdmsr_user(msr), bit));
 }
 
-// Set bit at index `bit` of `msr` to 0
+/**
+ * Set single bit in MSR to 0, leaving all others unchanged, from user.
+ *
+ * Reads the MSR.
+ */
+static __always_inline void uarf_wrmsr_clear(uint64_t msr, size_t bit) {
+    uarf_wrmsr(msr, BIT_CLEAR(uarf_rdmsr(msr), bit));
+}
+
+/**
+ * Set single bit in MSR to 0, leaving all others unchanged, from user.
+ *
+ * Reads the MSR.
+ */
 static __always_inline void uarf_wrmsr_clear_user(uint64_t msr, size_t bit) {
     uarf_wrmsr_user(msr, BIT_CLEAR(uarf_rdmsr_user(msr), bit));
 }
@@ -183,43 +221,79 @@ static __always_inline void uarf_wrmsr_clear_user(uint64_t msr, size_t bit) {
 #define MSR_LSTAR                   0xc0000082
 
 /**
- * Trigger an IBPB.
+ * Trigger an IBPB from privileged.
  */
 static __always_inline void uarf_ibpb(void) {
+    // Write only, error on read
+    uarf_wrmsr(MSR_PRED_CMD, BIT(MSR_PRED_CMD__IBPB));
+}
+
+/**
+ * Trigger an IBPB from user.
+ */
+static __always_inline void uarf_ibpb_user(void) {
     // Write only, error on read
     uarf_wrmsr_user(MSR_PRED_CMD, BIT(MSR_PRED_CMD__IBPB));
 }
 
 /**
- * Enable IBRS.
+ * Enable IBRS from privileged.
  */
 static __always_inline void uarf_ibrs_on(void) {
+    uarf_wrmsr_set(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
+}
+
+/**
+ * Enable IBRS from user.
+ */
+static __always_inline void uarf_ibrs_on_user(void) {
     uarf_wrmsr_set_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
 }
 
 /**
- * Disable IBRS.
+ * Disable IBRS from privileged.
  */
 static __always_inline void uarf_ibrs_off(void) {
+    uarf_wrmsr_clear(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
+}
+
+/**
+ * Disable IBRS from user.
+ */
+static __always_inline void uarf_ibrs_off_user(void) {
     uarf_wrmsr_clear_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
 }
 
 /**
- * Enable AutoIBRS.
+ * Enable AutoIBRS from privileged.
  */
 static __always_inline void uarf_autoibrs_on(void) {
+    uarf_wrmsr_set(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+}
+
+/**
+ * Enable AutoIBRS from user.
+ */
+static __always_inline void uarf_autoibrs_on_user(void) {
     uarf_wrmsr_set_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
 }
 
 /**
- * Disable AutoIBRS.
+ * Disable AutoIBRS from privileged.
  */
 static __always_inline void uarf_autoibrs_off(void) {
+    uarf_wrmsr_clear(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
+}
+
+/**
+ * Disable AutoIBRS from user.
+ */
+static __always_inline void uarf_autoibrs_off_user(void) {
     uarf_wrmsr_clear_user(MSR_EFER, MSR_EFER__AUTOMATIC_IBRS_EN);
 }
 
 /**
- * Enable eIBRS.
+ * Enable eIBRS from privileged.
  *
  * Systems supporting eIBRS do not have IBRS. But the same register is used.
  */
@@ -228,12 +302,30 @@ static __always_inline void uarf_eibrs_on(void) {
 }
 
 /**
- * Disable eIBRS.
+ * Enable eIBRS from user.
+ *
+ * Systems supporting eIBRS do not have IBRS. But the same register is used.
+ */
+static __always_inline void uarf_eibrs_on_user(void) {
+    uarf_ibrs_on_user();
+}
+
+/**
+ * Disable eIBRS from privileged.
  *
  * However, disabling eIBRS does usually not work.
  */
 static __always_inline void uarf_eibrs_off(void) {
     uarf_ibrs_off();
+}
+
+/**
+ * Disable eIBRS from user.
+ *
+ * However, disabling eIBRS does usually not work.
+ */
+static __always_inline void uarf_eibrs_off_user(void) {
+    uarf_ibrs_off_user();
 }
 
 static __always_inline unsigned long uarf_read_cr3(void) {
