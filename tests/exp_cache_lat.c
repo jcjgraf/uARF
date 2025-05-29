@@ -54,7 +54,8 @@ UARF_TEST_CASE_ARG(basic, config) {
 
     MemConfig *cfg = config;
     uarf_assert(IS_POW_TWO(cfg->mem_size));
-    uarf_assert(cfg->page_size == PAGE_SIZE || cfg->page_size == PAGE_SIZE_2M);
+    uarf_assert(cfg->page_size == PAGE_SIZE || cfg->page_size == PAGE_SIZE_2M ||
+                cfg->page_size == PAGE_SIZE_1G);
     uarf_assert(cfg->num_iter);
 
     // Allocate pages
@@ -69,6 +70,10 @@ UARF_TEST_CASE_ARG(basic, config) {
             uarf_assert(pages_p[i]);
         }
         else if (cfg->page_size == PAGE_SIZE_2M) {
+            pages_p[i] = uarf_alloc_map_huge_or_die(cfg->page_size);
+            uarf_assert(pages_p[i]);
+        }
+        else if (cfg->page_size == PAGE_SIZE_1G) {
             pages_p[i] = uarf_alloc_map_huge_or_die(cfg->page_size);
             uarf_assert(pages_p[i]);
         }
@@ -95,9 +100,10 @@ UARF_TEST_CASE_ARG(basic, config) {
 
     for (size_t iter = 0; iter < cfg->num_iter; iter++) {
         for (size_t access = 0; access < num_accesses; access++) {
-            size_t k = (access * 7817 + 4349) & (num_accesses - 1);
+            // size_t k = (access * 7817 + 4349) & (num_accesses - 1);
             // size_t k = (access * 7841 + 4943) & (num_accesses - 1);
-            // size_t k = (access *   9311 + 197) & (num_accesses - 1);
+            size_t k = (access *   9311 + 197) & (num_accesses - 1);
+            // size_t k = (access *   13 + 7) & (num_accesses - 1);
             size_t page_i = k / access_per_page;
             size_t page_offset = k - (page_i * access_per_page);
             uarf_assert(page_i < num_pages);
@@ -126,7 +132,9 @@ uint64_t test_sizes[22] = {1,     2,      4,      8,      16,      32,     64,  
                            65536, 131072, 262144, 524288, 1048576, 2097152};
 
 MemConfig cfg1 = {
-    .page_size = PAGE_SIZE_2M,
+    .page_size = PAGE_SIZE,
+    // .page_size = PAGE_SIZE_2M,
+    // .page_size = PAGE_SIZE_1G,
     .mem_size = 0,
     .num_iter = 10,
     .measure_func = uarf_get_access_time_a,
@@ -137,8 +145,8 @@ UARF_TEST_SUITE() {
     uarf_pi_init();
 
     // Disable prefetcher
-    // Does not make any difference
-    // uarf_wrmsr_user(0xc0000108, 47);
+    // Does not seem to work
+    uarf_wrmsr_user(0xc0000108, 47);
 
     uarf_log_system_base_level = UARF_LOG_LEVEL_INFO;
 
