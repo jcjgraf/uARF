@@ -69,4 +69,6 @@ ax.spines["right"].set_visible(False)
 fig.tight_layout(pad=1.0)
 
 # Save to PGF (LaTeX-ready)
-fig.savefig("memory_access_latency_ieee.pgf")
+# fig.savefig("memory_access_latency_ieee.pgf")
+# fig.savefig("memory_access_latency_ieee.pdf")
+fig.savefig("memory_access_latency_ieee.png")
