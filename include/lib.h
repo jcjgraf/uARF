@@ -210,8 +210,10 @@ static __always_inline void uarf_wrmsr_clear_user(uint64_t msr, size_t bit) {
 }
 
 // TODO: guard
+// MSR settings are given as the bit position, not value
 #define MSR_SPEC_CTRL               0x00000048
-#define MSR_SPEC_CTRL__IBRS         1
+#define MSR_SPEC_CTRL__IBRS         0
+#define MSR_SPEC_CTRL__STIBP        1
 #define MSR_PRED_CMD                0x00000049
 #define MSR_PRED_CMD__IBPB          0
 #define MSR_EFER                    0xc0000080
@@ -262,6 +264,34 @@ static __always_inline void uarf_ibrs_off(void) {
  */
 static __always_inline void uarf_ibrs_off_user(void) {
     uarf_wrmsr_clear_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__IBRS);
+}
+
+/**
+ * Enable STIBP from privileged.
+ */
+static __always_inline void uarf_stibp_on(void) {
+    uarf_wrmsr_set(MSR_SPEC_CTRL, MSR_SPEC_CTRL__STIBP);
+}
+
+/**
+ * Enable STIBP from user.
+ */
+static __always_inline void uarf_stibp_on_user(void) {
+    uarf_wrmsr_set_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__STIBP);
+}
+
+/**
+ * Disable STIBP from privileged.
+ */
+static __always_inline void uarf_stibp_off(void) {
+    uarf_wrmsr_clear(MSR_SPEC_CTRL, MSR_SPEC_CTRL__STIBP);
+}
+
+/**
+ * Disable STIBP from user.
+ */
+static __always_inline void uarf_stibp_off_user(void) {
+    uarf_wrmsr_clear_user(MSR_SPEC_CTRL, MSR_SPEC_CTRL__STIBP);
 }
 
 /**
