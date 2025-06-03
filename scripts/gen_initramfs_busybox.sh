@@ -53,6 +53,7 @@ VALID_ARGUMENTS=$?
 if [ "$VALID_ARGUMENTS" != "0" ]; then
     echo "Invalid argument"
     usage
+    exit 1
 fi
 
 eval set -- "$PARSED_ARGUMENTS"
