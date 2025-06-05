@@ -8,7 +8,7 @@ import matplotlib as mpl
 
 # Enable LaTeX text rendering
 mpl.rcParams.update({
-    "text.usetex": True,
+    # "text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Times New Roman"],  # or "Computer Modern" if you prefer default LaTeX fonts
     "axes.labelsize": 10,
@@ -36,10 +36,10 @@ with open("data.csv", "r") as file:
             y.append(float(y_val))
 
 # y ticks
-y_lbl = [2**i for i in range(10)]
+y_lbl = [2**i for i in range(2, 10)]
 
 # Plot
-fig, ax = plt.subplots(figsize=(3.5, 2.0))  # 3.5 inch for single column
+fig, ax = plt.subplots(figsize=(3.5, 1.8), layout="constrained")  # 3.5 inch for single column
 
 ax.plot(x, y, marker="o", markersize=3, linestyle="-", linewidth=1, color="black")
 
@@ -47,28 +47,43 @@ ax.set_xscale("log", base=2)
 ax.set_yscale("log", base=2)
 
 # Limits
-ax.set_xlim(min(x) * 0.9, max(x) * 1.1)
-ax.set_ylim(2**-0.2, 2**9 + 1)
+ax.set_xlim(min(x) * 0.8, max(x) * 1.2)
+ax.set_ylim(2**0.8, 2**9 + 1)
 
 # Labels (with LaTeX syntax)
-ax.set_xlabel(r"\textbf{Accessed Bytes}")
-ax.set_ylabel(r"\textbf{Latency [Cycles]}")
-ax.set_title(r"\textbf{Memory Access Latency}", pad=8)
+ax.set_xlabel(r"Memory Size [kB]")
+ax.set_ylabel(r"Latency [Cycles]")
+# ax.set_title(r"Memory Access Latency", pad=8)
 
 # Ticks
+ax.set_xticks([2**i for i in range(2, 21, 3)])
 ax.set_yticks(y_lbl)
 ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
 
 # Grid (only major y)
 ax.grid(True, which="major", axis="y")
 
+# place the labels
+ax.text(0.25, 0.12, 'L1', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.62, 0.30, 'L2', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.80, 0.49, 'LLC', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.945, 0.85, 'RAM', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.25, 0.12+0.2, '6', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.62, 0.30+0.2, '16', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.80, 0.49+0.2, '51', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+ax.text(0.945, 0.85+0.2, '400', horizontalalignment='center',
+     verticalalignment='center', transform=ax.transAxes)
+
 # Remove top and right spines
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 
-fig.tight_layout(pad=1.0)
-
 # Save to PGF (LaTeX-ready)
-# fig.savefig("memory_access_latency_ieee.pgf")
-# fig.savefig("memory_access_latency_ieee.pdf")
-fig.savefig("memory_access_latency_ieee.png")
+fig.savefig("memory_access_latency_ieee.pdf")
