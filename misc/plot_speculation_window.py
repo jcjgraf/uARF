@@ -221,7 +221,7 @@ y_ram = [
 
 
 # Plot
-fig, ax = plt.subplots(figsize=(3.5, 2.0))  # 3.5 inch for single column
+fig, ax = plt.subplots(figsize=(3.5, 1.6), layout="constrained")  # 3.5 inch for single column
 
 rects = ax.bar([0,1,2,3], [1, 5, 17, 88], color="black")
 ax.bar_label(rects, padding=3)
@@ -246,6 +246,7 @@ ax.set_ylabel(r"Window Size [Loads]")
 # Ticks
 # y_lbl = [2**i for i in range(10)]
 ax.tick_params(axis=u'x', which=u'both',length=0)
+ax.set_xticks([0,1,2,3])
 ax.set_xticklabels(["L1", "L2", "L3", "RAM"])
 ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
 
@@ -256,7 +257,7 @@ ax.grid(True, which="major", axis="y")
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 
-fig.tight_layout(pad=1.0)
+# fig.tight_layout()
 
 # Save to PGF (LaTeX-ready)
 # fig.savefig("memory_access_latency_ieee.pgf")
