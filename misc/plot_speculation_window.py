@@ -223,7 +223,7 @@ y_ram = [
 # Plot
 fig, ax = plt.subplots(figsize=(3.5, 1.6), layout="constrained")  # 3.5 inch for single column
 
-rects = ax.bar([0,1,2,3], [1, 5, 17, 88], color="black")
+rects = ax.bar([0,1,2,3], [1, 5, 17, 88], color="#202020", fill=True)
 ax.bar_label(rects, padding=3)
 # ax.plot(x, y_l1, markersize=3, linestyle="-", linewidth=1, color="black")
 # ax.plot(x, y_l2, markersize=3, linestyle="-", linewidth=1, color="green")
