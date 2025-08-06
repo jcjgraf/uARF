@@ -35,7 +35,6 @@ function usage() {
     echo "Configuration:"
     echo "  Store in file and provide path as CONFIG"
     echo "  All options are required"
-    echo "  All options are required"
     echo "  Options:"
     echo "    SRC:              Source path (trailing / matters!)"
     echo "    DEST:             Destination path"
