@@ -1,0 +1,334 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="keywords" content="linux, benchmarks, benchmarking">
+  <title>Benchmark of uarf / GNU/Linux on Thu Jun 05 2025</title>
+  <style type="text/css">
+    table {
+      margin: 1em 1em 1em 0;
+      background: #f9f9f9;
+      border: 1px #aaaaaa solid;
+      border-collapse: collapse;
+    }
+
+    table th, table td {
+      border: 1px #aaaaaa solid;
+      padding: 0.2em;
+    }
+
+    table th {
+      background: #f2f2f2;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<h2>Benchmark of uarf / GNU/Linux on Thu Jun 05 2025</h2>
+<p><b>BYTE UNIX Benchmarks (Version 6.0.0)</b></p>
+
+<h3>Test System Information</h3>
+<p><table>
+<tr>
+   <td><b>System:</b></td>
+   <td colspan=2>uarf: GNU/Linux</td>
+</tr><tr>
+   <td><b>OS:</b></td>
+   <td colspan=2>GNU/Linux -- 6.6.0-00004-g6d2c327f3404 -- #1 SMP PREEMPT_DYNAMIC Thu May 29 18:55:31 CEST 2025</td>
+</tr><tr>
+   <td><b>Machine:</b></td>
+   <td colspan=2>x86_64: unknown</td>
+</tr><tr>
+   <td><b>Language:</b></td>
+   <td colspan=2>en_US.utf8 (charmap="ANSI_X3.4-1968", collate="ANSI_X3.4-1968")</td>
+</tr>
+<tr>
+   <td rowspan=2><b>CPUs:</b></td>
+   <td><b>0:</b></td>
+   <td>QEMU Virtual CPU version 2.5+ (7785.4 bogomips)<br/>
+       Hyper-Threading, x86-64, MMX, Physical Address Ext, SYSENTER/SYSEXIT, SYSCALL/SYSRET</td>
+</tr>
+<tr>
+   <td><b>1:</b></td>
+   <td>QEMU Virtual CPU version 2.5+ (7785.4 bogomips)<br/>
+       Hyper-Threading, x86-64, MMX, Physical Address Ext, SYSENTER/SYSEXIT, SYSCALL/SYSRET</td>
+</tr>
+<tr>
+   <td><b>Uptime:</b></td>
+   <td colspan=2>14:29:50 up 0 min,  0 user,  load average: 0.08, 0.02, 0.01; runlevel Jun</td>
+</tr>
+</table></p>
+
+<p><hr/></p>
+<h3>Benchmark Run: 2 CPUs; 1 parallel process</h3>
+<p>Time: 14:29:50 - 14:57:42; 27m 52s</p>
+
+<h4>System Benchmarks</h4>
+<p><table width="100%">
+<tr>
+   <th align=left>Test</th>
+   <th align=right>Score</th>
+   <th align=left>Unit</th>
+   <th align=right>Time</th>
+   <th align=right>Iters.</th>
+   <th align=right>Baseline</th>
+   <th align=right>Index</th>
+</tr>
+<tr>
+   <td><b>Dhrystone 2 using register variables</b></td>
+   <td align=right><tt>96798688.0</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>116700.0</tt></td>
+   <td align=right><tt>8294.7</tt></td>
+</tr>
+<tr>
+   <td><b>Double-Precision Whetstone</b></td>
+   <td align=right><tt>11627.3</tt></td>
+   <td align=left><tt>MWIPS</tt></td>
+   <td align=right><tt>9.9 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>55.0</tt></td>
+   <td align=right><tt>2114.1</tt></td>
+</tr>
+<tr>
+   <td><b>Execl Throughput</b></td>
+   <td align=right><tt>3547.9</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>43.0</tt></td>
+   <td align=right><tt>825.1</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 1024 bufsize 2000 maxblocks</b></td>
+   <td align=right><tt>28592.5</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>3960.0</tt></td>
+   <td align=right><tt>72.2</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 256 bufsize 500 maxblocks</b></td>
+   <td align=right><tt>7155.5</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>1655.0</tt></td>
+   <td align=right><tt>43.2</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 4096 bufsize 8000 maxblocks</b></td>
+   <td align=right><tt>112598.9</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>5800.0</tt></td>
+   <td align=right><tt>194.1</tt></td>
+</tr>
+<tr>
+   <td><b>Pipe Throughput</b></td>
+   <td align=right><tt>4841387.5</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>12440.0</tt></td>
+   <td align=right><tt>3891.8</tt></td>
+</tr>
+<tr>
+   <td><b>Pipe-based Context Switching</b></td>
+   <td align=right><tt>92354.5</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>4000.0</tt></td>
+   <td align=right><tt>230.9</tt></td>
+</tr>
+<tr>
+   <td><b>Process Creation</b></td>
+   <td align=right><tt>24975.9</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>126.0</tt></td>
+   <td align=right><tt>1982.2</tt></td>
+</tr>
+<tr>
+   <td><b>Shell Scripts (1 concurrent)</b></td>
+   <td align=right><tt>9753.1</tt></td>
+   <td align=left><tt>lpm</tt></td>
+   <td align=right><tt>60.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>42.4</tt></td>
+   <td align=right><tt>2300.3</tt></td>
+</tr>
+<tr>
+   <td><b>Shell Scripts (8 concurrent)</b></td>
+   <td align=right><tt>1925.4</tt></td>
+   <td align=left><tt>lpm</tt></td>
+   <td align=right><tt>60.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>6.0</tt></td>
+   <td align=right><tt>3209.0</tt></td>
+</tr>
+<tr>
+   <td><b>System Call Overhead</b></td>
+   <td align=right><tt>4492217.6</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>15000.0</tt></td>
+   <td align=right><tt>2994.8</tt></td>
+</tr>
+<tr>
+   <td colspan=6><b>System Benchmarks Index Score:</b></td>
+   <td align=right><b><tt>915.2</tt></b></td>
+</tr>
+</table></p>
+
+<p><hr/></p>
+<h3>Benchmark Run: 2 CPUs; 2 parallel processes</h3>
+<p>Time: 14:57:42 - 15:25:35; 27m 53s</p>
+
+<h4>System Benchmarks</h4>
+<p><table width="100%">
+<tr>
+   <th align=left>Test</th>
+   <th align=right>Score</th>
+   <th align=left>Unit</th>
+   <th align=right>Time</th>
+   <th align=right>Iters.</th>
+   <th align=right>Baseline</th>
+   <th align=right>Index</th>
+</tr>
+<tr>
+   <td><b>Dhrystone 2 using register variables</b></td>
+   <td align=right><tt>141260831.4</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>116700.0</tt></td>
+   <td align=right><tt>12104.6</tt></td>
+</tr>
+<tr>
+   <td><b>Double-Precision Whetstone</b></td>
+   <td align=right><tt>21689.3</tt></td>
+   <td align=left><tt>MWIPS</tt></td>
+   <td align=right><tt>9.9 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>55.0</tt></td>
+   <td align=right><tt>3943.5</tt></td>
+</tr>
+<tr>
+   <td><b>Execl Throughput</b></td>
+   <td align=right><tt>4875.4</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>43.0</tt></td>
+   <td align=right><tt>1133.8</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 1024 bufsize 2000 maxblocks</b></td>
+   <td align=right><tt>40560.2</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>3960.0</tt></td>
+   <td align=right><tt>102.4</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 256 bufsize 500 maxblocks</b></td>
+   <td align=right><tt>9947.7</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>1655.0</tt></td>
+   <td align=right><tt>60.1</tt></td>
+</tr>
+<tr>
+   <td><b>File Copy 4096 bufsize 8000 maxblocks</b></td>
+   <td align=right><tt>157421.8</tt></td>
+   <td align=left><tt>KBps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>5800.0</tt></td>
+   <td align=right><tt>271.4</tt></td>
+</tr>
+<tr>
+   <td><b>Pipe Throughput</b></td>
+   <td align=right><tt>6982763.6</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>12440.0</tt></td>
+   <td align=right><tt>5613.2</tt></td>
+</tr>
+<tr>
+   <td><b>Pipe-based Context Switching</b></td>
+   <td align=right><tt>958955.4</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>4000.0</tt></td>
+   <td align=right><tt>2397.4</tt></td>
+</tr>
+<tr>
+   <td><b>Process Creation</b></td>
+   <td align=right><tt>57218.6</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>30.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>126.0</tt></td>
+   <td align=right><tt>4541.2</tt></td>
+</tr>
+<tr>
+   <td><b>Shell Scripts (1 concurrent)</b></td>
+   <td align=right><tt>12064.3</tt></td>
+   <td align=left><tt>lpm</tt></td>
+   <td align=right><tt>60.0 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>42.4</tt></td>
+   <td align=right><tt>2845.4</tt></td>
+</tr>
+<tr>
+   <td><b>Shell Scripts (8 concurrent)</b></td>
+   <td align=right><tt>1985.5</tt></td>
+   <td align=left><tt>lpm</tt></td>
+   <td align=right><tt>60.1 s</tt></td>
+   <td align=right><tt>2</tt></td>
+   <td align=right><tt>6.0</tt></td>
+   <td align=right><tt>3309.2</tt></td>
+</tr>
+<tr>
+   <td><b>System Call Overhead</b></td>
+   <td align=right><tt>7576297.6</tt></td>
+   <td align=left><tt>lps</tt></td>
+   <td align=right><tt>10.0 s</tt></td>
+   <td align=right><tt>7</tt></td>
+   <td align=right><tt>15000.0</tt></td>
+   <td align=right><tt>5050.9</tt></td>
+</tr>
+<tr>
+   <td colspan=6><b>System Benchmarks Index Score:</b></td>
+   <td align=right><b><tt>1590.9</tt></b></td>
+</tr>
+</table></p>
+
+<p><hr/></p>
+<div><b>No Warranties:</b> This information is provided free of charge and "as
+is" without any warranty, condition, or representation of any kind,
+either express or implied, including but not limited to, any warranty
+respecting non-infringement, and the implied warranties of conditions
+of merchantability and fitness for a particular purpose. All logos or
+trademarks on this site are the property of their respective owner. In
+no event shall the author be liable for any
+direct, indirect, special, incidental, consequential or other damages
+howsoever caused whether arising in contract, tort, or otherwise,
+arising out of or in connection with the use or performance of the
+information contained on this web site.</div>
+</body>
+</html>

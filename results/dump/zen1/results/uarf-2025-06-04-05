@@ -1,0 +1,12 @@
+   BYTE UNIX Benchmarks (Version 6.0.0)
+
+   System: uarf: GNU/Linux
+   OS: GNU/Linux -- 6.6.0-00004-g6d2c327f3404 -- #1 SMP PREEMPT_DYNAMIC Thu May 29 18:55:31 CEST 2025
+   Machine: x86_64 (unknown)
+   Language: en_US.utf8 (charmap="ANSI_X3.4-1968", collate="ANSI_X3.4-1968")
+   CPU 0: QEMU Virtual CPU version 2.5+ (7186.5 bogomips)
+          Hyper-Threading, x86-64, MMX, Physical Address Ext, SYSENTER/SYSEXIT, AMD virtualization, SYSCALL/SYSRET
+   CPU 1: QEMU Virtual CPU version 2.5+ (7186.5 bogomips)
+          Hyper-Threading, x86-64, MMX, Physical Address Ext, SYSENTER/SYSEXIT, AMD virtualization, SYSCALL/SYSRET
+   04:32:08 up 58 min,  0 user,  load average: 3.38, 7.59, 4.86; runlevel Jun
+

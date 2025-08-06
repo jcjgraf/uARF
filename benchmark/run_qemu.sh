@@ -17,7 +17,11 @@ DRIVE_RSA_PUB="$DRIVE_PATH/bookworm_misc/bookworm.is_rsa"
 UNIXBENCH_REMOTE="https://github.com/kdlucas/byte-unixbench"
 UNIXBENCH_PATH="$HOME/unixbench"
 
-KERNEL_IMG_PATH="$UARF_PATH/benchmark/bzImage_for_qemu"
+KERNEL_IMG_PATH="$UARF_PATH/benchmark/bzImage"
+
+# QEMU_ELF="qemu-system-x86_64"
+QEMU_ELF="$HOME/qemu/build_retpoline/qemu-system-x86_64"
+# QEMU_ELF="$HOME/qemu/bin/qemu-system-x86_64"
 
 verbose=false
 force=false
@@ -123,7 +127,10 @@ fi
 mkdir -p /tmp/jegraf
 
 log_info "Starting VM"
-qemu-system-x86_64 \
+# qemu-system-x86_64 \
+# $(QEMU_ELF) \
+/local/home/jegraf/qemu/build_retpoline/qemu-system-x86_64 \
+# /local/home/jegraf/qemu/build_baseline/qemu-system-x86_64 \
     -m $QEMU_RAM \
     -smp cpus=2,maxcpus=2,dies=1,cores=1,threads=2 \
     -kernel "$KERNEL_IMG_PATH" \
