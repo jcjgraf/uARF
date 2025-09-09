@@ -1,4 +1,4 @@
-!#/usr/bin/env bash
+#!/usr/bin/env bash
 
 # Apply a set of `PATCHES` on top of `KERNEL_PARENT` on branch `KERNEL_PATCHED`
 
