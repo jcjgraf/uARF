@@ -43,6 +43,7 @@ DEBARCH=amd64
 out=$CWD
 guest_cwd="/"
 verbose=true
+share=false
 force=false
 
 function log_debug() {
@@ -178,7 +179,7 @@ if [ ! -d "$drive_conf" ]; then
     # echo 'binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc defaults 0 0' | sudo tee -a $drive_dir_path/etc/fstab
     if [ "$share" = true ]; then
         sudo mkdir -p "$drive_conf/mnt/host0"
-        echo "mount -t 9p host0 /mnt/host0 -o trans=virtio,version=9p2000.L" | sudo tee -a "$drive_conf/etc/fstab"
+        echo "host0   /mnt/host0   9p   trans=virtio,version=9p2000.L   0   0" | sudo tee -a "$drive_conf/etc/fstab"
     fi
 
     # Networking
