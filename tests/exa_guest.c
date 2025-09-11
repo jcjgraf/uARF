@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 #include <asm/processor-flags.h>
-#include <kvm_util_base.h>
+#include <kvm_util.h>
 #include <ucall_common.h>
 
 #include "uarf/guest.h"
@@ -62,13 +62,13 @@ void do_call(registers_t *r) {
 }
 
 static void guest_main(void) {
-    uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS, __USER_CS_STAR);
+    uarf_init_syscall(uarf_syscall_handler_return, KERNEL_CS, USER_CS_STAR);
 
     GUEST_PRINTF("Hello from Guest Supervisor!\n");
     GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
     do_call(&registers);
 
-    uarf_supervisor2user(__USER_DS, __USER_CS);
+    uarf_supervisor2user(USER_DS, USER_CS);
     GUEST_PRINTF("Dropped privileges to user\n");
     GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
     do_call(&registers);
@@ -78,7 +78,7 @@ static void guest_main(void) {
     GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
     do_call(&registers);
 
-    uarf_supervisor2user(__USER_DS, __USER_CS);
+    uarf_supervisor2user(USER_DS, USER_CS);
     GUEST_PRINTF("Dropped privileges to user\n");
     GUEST_PRINTF("Running in ring %u\n", uarf_get_ring());
     do_call(&registers);
@@ -165,8 +165,11 @@ int test(void) {
     u64 extra_pages = NUM_ADDITINAL_PAGES * 2 * (2 * 512);
     vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
 
-    vm_init_descriptor_tables(vm);
-    vcpu_init_descriptor_tables(vcpu);
+
+    // vm_init_descriptor_tables(vm);
+    // vcpu_init_descriptor_tables(vcpu);
+
+    // vcpu_init_descriptor_tables(vcpu);
     // vm_install_exception_handler(vm, <NR>, <HANDLER>); // Register handler if required
 
     // allocate some code

@@ -309,9 +309,9 @@ static void guest_run_fr_spec_supervisor(void) {
  * Entry point for running speculation in guest user.
  */
 static void guest_run_spec_user(void) {
-    uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS, __USER_CS_STAR);
+    uarf_init_syscall(uarf_syscall_handler_return, KERNEL_CS, USER_CS_STAR);
 
-    uarf_supervisor2user(__USER_DS, __USER_CS);
+    uarf_supervisor2user(USER_DS, USER_CS);
     run_spec_global();
 
     // Return back to supervisor, such that we do no get troubles when recycling
@@ -327,9 +327,9 @@ static void guest_run_spec_user(void) {
  * For signaling phase.
  */
 static void guest_run_fr_spec_user(void) {
-    uarf_init_syscall(uarf_syscall_handler_return, __KERNEL_CS, __USER_CS_STAR);
+    uarf_init_syscall(uarf_syscall_handler_return, KERNEL_CS, USER_CS_STAR);
 
-    uarf_supervisor2user(__USER_DS, __USER_CS);
+    uarf_supervisor2user(USER_DS, USER_CS);
 
     uarf_frs_flush();
     run_spec_global();
