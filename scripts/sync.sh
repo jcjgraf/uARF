@@ -238,5 +238,5 @@ if [ "$daemon" = true ]; then
     done
 else
     log "Running: rsync ${rsync_args[@]}"
-    rsync "${rsync_args[@]}"
+    rsync "${rsync_args[@]}" || log_err_msg "Rsync exited unexpectedly: $?!"
 fi
