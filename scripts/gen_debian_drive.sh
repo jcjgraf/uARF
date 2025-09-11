@@ -165,7 +165,10 @@ if [ ! -d "$drive_conf" ]; then
     # Set some defaults and enable promtless ssh to the machine for root.
     sudo sed -i '/^root/ { s/:x:/::/ }' "$drive_conf/etc/passwd"
 
-    echo 'T0:23:respawn:/sbin/getty -L ttyS0 115200 vt100' | sudo tee -a "$drive_conf/etc/inittab"
+    # echo 'T0:12345:respawn:/sbin/getty -L ttyS0 115200 vt100' | sudo tee -a "$drive_conf/etc/inittab"
+    echo 'T0:12345:respawn:/sbin/getty -L ttyS0 115200 vt100 -a root' | sudo tee -a "$drive_conf/etc/inittab"
+    # echo '::respawn:-/bin/sh' | sudo tee -a "$drive_conf/etc/inittab"
+# -/sbin/agetty --autologin root
 
     # Login as root with empty password
     # echo 'T0:23:respawn:/sbin/getty -L -a root ttyS0 115200 vt100' | sudo tee -a "$drive_conf/etc/inittab"
