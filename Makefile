@@ -116,9 +116,11 @@ kmods_clean:
 .PHONY: install
 install: $(LIBRARY) uninstall
 	@echo "Install library"
-	$(VERBOSE) mkdir -p $(LIBRARY_LIB_DIR) $(LIBRARY_INCLUDE_DIR)
-	$(VERBOSE) cp $(LIBRARY) $(LIBRARY_LIB_DIR)/
-	$(VERBOSE) cp -r include/* $(LIBRARY_INCLUDE_DIR)/
+	$(VERBOSE) install -d -m 755 $(LIBRARY_LIB_DIR) $(LIBRARY_INCLUDE_DIR)/kmod
+	$(VERBOSE) install -m 644 $(LIBRARY) $(LIBRARY_LIB_DIR)/
+	$(VERBOSE) install -m 644 -D include/*.h $(LIBRARY_INCLUDE_DIR)/
+	$(VERBOSE) install -m 644 -D include/kmod/*.h $(LIBRARY_INCLUDE_DIR)/kmod
+
 
 # Uninstall library
 .PHONY: uninstall
