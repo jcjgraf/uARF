@@ -29,7 +29,7 @@ struct UarfPiReqCpuid {
 typedef struct UarfPiReqOut UarfPiReqOut;
 struct UarfPiReqOut {
     uint32_t value;
-    uint32_t port;
+    uint16_t port;
 };
 
 typedef struct UarfPiReqOuts UarfPiReqOuts;
