@@ -3,26 +3,6 @@ uARF_ROOT := $(abspath $(CURDIR))
 CONFIG := $(uARF_ROOT)/.config
 include $(CONFIG)
 
-ifeq ($(PLATFORM),)
-	$(error Please define PLATFORM)
-endif
-
-PLATFORM_CONFIG := $(uARF_ROOT)/config/$(PLATFORM).config
-include $(PLATFORM_CONFIG)
-
-COMMON_DEFINE := -Dzen4=1 -Dzen5=2 -Dskylake=3
-
-ifeq ($(HOSTNAME), ee-tik-cn128)
-    COMMON_DEFINE += -DUARCH=zen4
-else ifeq ($(HOSTNAME), ee-tik-cn145)
-    COMMON_DEFINE += -DUARCH=zen5
-else ifeq ($(HOSTNAME), jcarch)
-    COMMON_DEFINE += -DUARCH=skylake
-else
-    $(warning "Unrecognised system '${HOSTNAME}'")
-endif
-
-
 uARF_SRC := $(uARF_ROOT)/src
 uARF_INCL := $(uARF_ROOT)/include
 uARF_TEST := $(uARF_ROOT)/tests
@@ -31,12 +11,8 @@ uARF_KMOD := $(uARF_ROOT)/kmods
 CC := gcc
 AR := ar
 
+COMMON_DEFINE :=
 COMMON_INCLUDES := -I$(uARF_INCL)
-
-# ifdef KTF_ROOT
-# export __KTF__
-# COMMON_INCLUDES += -I$(KTF_ROOT)/include
-# endif
 
 COMMON_FLAGS := $(COMMON_INCLUDES) $(COMMON_DEFINE) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
@@ -104,13 +80,13 @@ clean:
 
 .PHONY: kmods
 kmods:
-	@echo "Building kmods with kdir $(KDIR)"
-	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR)
+	@echo "Building kmods"
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) all
 
 .PHONY: kmods_clean
 kmods_clean:
 	@echo "Clean KMOD"
-	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) KDIR=$(KDIR) clean
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) clean
 
 # Install library
 .PHONY: install
