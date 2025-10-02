@@ -3,20 +3,20 @@
 uARF is a framework that facilitates and supports the reverse engineering and understanding of the micro-architecture of modern CPUs (x86-64).
 
 ### Feature Overview
-- Just-in-Time Assembler (JITA): Dynamically generates object code at runtime.
-- Seamless Assembly Code Integration: Easily embed assembly (ASM) into experiments.
-- Fine-grained Code Placement: Control exactly where object code is placed in memory.
-- Privilege Escalation Mechanisms: Run privileged instructions from user mode via a kernel module.
-- Supervisor Mode Execution: Execute arbitrary code in supervisor mode via a kernel module.
-- Flush-and-Reload Side Channel: Utilize a well-known side-channel attack technique.
-- Performance Counter Interaction: Precisely measure code sections with performance counters.
-- KVM Selftest Integration: Run arbitrary code in guest supervisor/user mode.
-- Speculative Execution Experiments: Includes helper functions and snippets for writing Spetre experiments.
-- Logging & Synchronization: Built-in logging and remote synchronization mechanisms.
+- **Just-in-Time Assembler (JITA)**: Dynamically generates object code at runtime.
+- **Seamless Assembly Code Integration**: Easily embed assembly (ASM) into experiments.
+- **Fine-grained Code Placement**: Control exactly where object code is placed in memory.
+- **Privilege Escalation Mechanisms**: Run privileged instructions from user mode via a kernel module.
+- **Supervisor Mode Execution**: Execute arbitrary code in supervisor mode via a kernel module.
+- **Flush-and-Reload Side Channel**: Utilize a well-known side-channel attack technique.
+- **Performance Counter Interaction**: Precisely measure code sections with performance counters.
+- **KVM Selftest Integration**: Run arbitrary code in guest supervisor/user mode.
+- **Speculative Execution Experiments**: Includes helper functions and snippets for writing Spetre experiments.
+- **Logging & Tooling**: Built-in logging and various useful tools.
 
 ## Getting Started
 uARF can be used in two ways:
-    1. Integrate your experiments into the framework’s build system.
+    1. Integrate your experiments into the framework's build system.
     2. Build and include uARF as a library in your project.
 
 ### Integrate Tests
@@ -73,14 +73,5 @@ The Linux Kernel provides a selftest environment that allow to run KVM based gue
 - Build the experiment `make -C tools/testing/selftests/kvm`
 - Run the experiment `./tools/testing/selftests/kvm/x86_64/rev_eng/<EXPERIMENT_BASE_NAME>`
 
-## Syncer
-Automatically sync this framework, and/or your experiments to a remote. Synchronisation is based on configuration files.
-
-### How to
-- Define a configuration file, e.g. in `./misc/<TARGET_CONFIG>`
-    - See `./scripts/sync.sh --help` for information on the structure of the config
-    - Config is interpreted as a bash file, so you can compute these file lists
-- Run syncer `./scripts/sync.sh <PATH_TO_TARGET_CONFIG>`
-    - Run with `--daemon` to keep syncing changes in the background
-    - See `./scripts/sync.sh --help` for more information on options and flags
-
+## Tools
+See [[./tools/README.md]]
