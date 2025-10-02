@@ -1,17 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Synchronize a local directory, like a repository, to a remote node. The synchronization is triggered by changes to the local directory.
-#
-# This script is designed to synchronize all files inside SRC to DST. The files
-# COMMON_EXCLUDE and if -a it not used BUILD_EXCLUDE are excluded. Contains also a
-# daemon that watches the files returned by WATCH_FILES_CMD and triggers a sync upon
-# change.
+# Synchronize repositories or general directories to a remote location.
+# Optionally, run as a daemon to automatically watch for changes. Synchronization
+# behavior is defined via configuration files.
 
 set -u
 set -e
 
-# Open a new file descriptor that redirects to stdout:
-# For logging
 exec 3>&1
 
 # Terminate the synchronization after time time
