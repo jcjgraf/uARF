@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Synchronize a local directory, like a repository, to a remote node. The synchronization is triggered by changes to the local directory.
+#
+# This script is designed to synchronize all files inside SRC to DST. The files
+# COMMON_EXCLUDE and if -a it not used BUILD_EXCLUDE are excluded. Contains also a
+# daemon that watches the files returned by WATCH_FILES_CMD and triggers a sync upon
+# change.
+
 set -u
 set -e
 
@@ -7,17 +14,14 @@ set -e
 # For logging
 exec 3>&1
 
-# This script is designed to synchronize all files inside SRC to DST. The files
-# COMMON_EXCLUDE and if -a it not used BUILD_EXCLUDE are excluded. Contains also a
-# daemon that watches the files returned by WATCH_FILES_CMD and triggers a sync upon
-# change.
-
 # Terminate the synchronization after time time
 # Done because rsync somehow gets blocked sometimes
 SYNC_TIMEOUT=10
 
 LONGOPTS=all,daemon,force,verbose,help
 OPTIONS=adfvh
+
+CONFIG_PATH="$XDG_CONFIG_HOME/syncer"
 
 function usage() {
     echo "Usage: $0 [OPTION]... CONFIG"
@@ -30,17 +34,17 @@ function usage() {
     echo "  --help, -h     Show this help message"
     echo ""
     echo "Positional Arguments:"
-    echo "  CONFIG: Path to configuration file to use."
+    echo "  CONFIG:  Name of config if placed in '$XDG_CONFIG_HOME/syncer' or path to configuration file to use."
     echo ""
     echo "Configuration:"
     echo "  Store in file and provide path as CONFIG"
     echo "  All options are required"
     echo "  Options:"
-    echo "    SRC:              Source path (trailing / matters!)"
-    echo "    DEST:             Destination path"
-    echo "    COMMON_EXCLUDE:   List of files that are always excluded"
-    echo "    BUILD_EXCLUDE:    List of files that are excluded, unless --all is used"
-    echo "    WATCH:            List of files to watch"
+    echo "    SRC:             Source path (trailing / matters!)"
+    echo "    DEST:            Destination path"
+    echo "    COMMON_EXCLUDE:  List of files that are always excluded"
+    echo "    BUILD_EXCLUDE:   List of files that are excluded, unless --all is used"
+    echo "    WATCH:           List of files to watch"
 }
 
 function log() {
@@ -116,6 +120,10 @@ fi
 log "All arguments parsed"
 
 config=$(readlink -f "$1")
+
+if [ ! -f "$config" ]; then
+    config="$CONFIG_PATH/$config"
+fi
 
 if [ ! -f "$config" ]; then
     echo "Config file \"$config\" does not exist"
