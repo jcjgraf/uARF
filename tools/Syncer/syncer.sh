@@ -13,8 +13,8 @@ exec 3>&1
 # Done because rsync somehow gets blocked sometimes
 SYNC_TIMEOUT=10
 
-LONGOPTS=all,daemon,force,verbose,help
-OPTIONS=adfvh
+LONGOPTS=all,daemon,force,timeout:,verbose,help
+OPTIONS=adft:vh
 
 CONFIG_PATH="$XDG_CONFIG_HOME/syncer"
 
@@ -22,11 +22,12 @@ function usage() {
     echo "Usage: $0 [OPTION]... CONFIG"
     echo ""
     echo "Options:"
-    echo "  --all, -a      Sync all files (including build artefacts etc.)"
-    echo "  --daemon, -d   Start sync daemon."
-    echo "  --force, -f    Delete all files at destination that do not exist at source."
-    echo "  --verbose, -v  Verbose logging."
-    echo "  --help, -h     Show this help message"
+    echo "  --all, -a               Sync all files (including build artefacts etc.)"
+    echo "  --daemon, -d            Start sync daemon."
+    echo "  --force, -f             Delete all files at destination that do not exist at source."
+    echo "  --timeout, -t TIMEOUT   Time to wait before terminating scp (default: ${SYNC_TIMEOUT}s)."
+    echo "  --verbose, -v           Verbose logging."
+    echo "  --help, -h              Show this help message"
     echo ""
     echo "Positional Arguments:"
     echo "  CONFIG:  Name of config if placed in '$XDG_CONFIG_HOME/syncer' or path to configuration file to use."
@@ -69,6 +70,7 @@ all=false
 daemon=false
 force=false
 verbose=false
+timeout=$SYNC_TIMEOUT
 
 # Read till we see --
 while true; do
@@ -83,6 +85,11 @@ while true; do
             ;;
         -f|--force)
             force=true
+            shift
+            ;;
+        -t|--timeout)
+            shift
+            timeout=$1
             shift
             ;;
         -v|--verbose)
@@ -204,12 +211,12 @@ if [ "$daemon" = true ]; then
     while true; do
         echo "==================="
         log "Start sync"
-        timeout $SYNC_TIMEOUT rsync "${rsync_args[@]}"
+        timeout $timeout rsync "${rsync_args[@]}"
 
         retVal=$?
 
         if [ $retVal -eq 124 ]; then
-            log_err_msg "Timeout triggered ($SYNC_TIMEOUT seconds)! Retry..."
+            log_err_msg "Timeout triggered ($timeout seconds)! Retry..."
             continue
         fi
 
