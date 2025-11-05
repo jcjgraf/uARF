@@ -114,10 +114,11 @@ fi
 
 log "All arguments parsed"
 
-config=$(readlink -f "$1")
+config_arg="$1"
+config=$(readlink -f $config_arg)
 
 if [ ! -f "$config" ]; then
-    config="$CONFIG_PATH/$config"
+    config="$CONFIG_PATH/$config_arg"
 fi
 
 if [ ! -f "$config" ]; then
