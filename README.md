@@ -87,7 +87,8 @@ The Linux Kernel provides a selftest environment that allow to run KVM based gue
 See [[./tools/README.md]]
 
 ## Thanks
+This work was influenced by several excellent projects:
+- The snippet-based assembler design was inspired by [retbleed](https://github.com/comsec-group/retbleed) and [BPI](https://github.com/comsec-group/bprc).
+- [KTF](https://github.com/KernelTestFramework/ktf) served as inspiration on how to structure low-level experiments and helped deepen my understanding of concepts such as privilege transitions.
 
-This framework is loosely based on the work of [retbleed](https://github.com/comsec-group/retbleed). Some code snippets or scripts may have been adapted from online sources or generated using LLMs. If any attributions are missing, please let me know so I can give proper credit.
-
-Contributions and feedback is highly appreciated.
+Some code snippets or scripts may have been adapted from online sources or were (partially) generated using LLMs. If any attribution is missing, please let me know so I can provide proper credit.
