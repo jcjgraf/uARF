@@ -1,3 +1,7 @@
 obj-m += pi.o
 
-CFLAGS_pi.o := -DDEBUG -std=gnu99 -g
+ccflags-y += -DDEBUG -std=gnu99 -g
+
+MK_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+include $(MK_DIR)../kmod-common.mk
+

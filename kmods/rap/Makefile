@@ -1,3 +1,6 @@
 obj-m += rap.o
 
-CFLAGS_rap.o := -DDEBUG -std=gnu99 -g -O2
+ccflags-y += -DDEBUG -std=gnu99 -g
+
+MK_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+include $(MK_DIR)../kmod-common.mk
