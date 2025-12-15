@@ -12,7 +12,7 @@ CC := gcc
 AR := ar
 
 COMMON_DEFINE :=
-COMMON_INCLUDES := -I$(uARF_INCL)
+COMMON_INCLUDES := -I$(uARF_INCL) -I$(uARF_KMOD)/smm/include
 
 COMMON_FLAGS := $(COMMON_INCLUDES) $(COMMON_DEFINE) -MP -MMD
 AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
@@ -20,7 +20,7 @@ AFLAGS := $(COMMON_FLAGS) -D__ASSEMBLY__
 CFLAGS := $(COMMON_FLAGS) -Wall -Wextra -g -static -O3
 
 SOURCES     := $(shell find $(uARF_SRC) -name \*.c)
-HEADERS     := $(shell find $(uARF_INCL) $(uARF_KMOD) -name \*.h)
+# HEADERS     := $(shell find $(uARF_INCL) $(uARF_KMOD) -name \*.h)
 ASM_SOURCES := $(shell find $(uARF_SRC) $(uARF_INCL) -name \*.S)
 
 OBJS := $(SOURCES:%.c=%.o)
