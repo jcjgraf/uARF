@@ -117,14 +117,14 @@ static __always_inline void uarf_pi_vmmcall(uint32_t nr) {
     }
 }
 
-static __always_inline void uarf_pi_out(uint32_t value, uint16_t port) {
+static __always_inline void uarf_pi_out(uint16_t port, uint16_t value) {
     UarfPiReqOut req = {.value = value, .port = port};
     if (ioctl(fd_pi, UARF_IOCTL_OUT, &req) < 0) {
         perror("Failed to out\n");
     }
 }
 
-static __always_inline void uarf_pi_outs(char *buf, size_t len, uint16_t port) {
+static __always_inline void uarf_pi_outs(uint16_t port, char *buf, size_t len) {
     UarfPiReqOuts req = {.buf = buf, .len = len, .port = port};
     if (ioctl(fd_pi, UARF_IOCTL_OUTS, &req) < 0) {
         perror("Failed to outs\n");

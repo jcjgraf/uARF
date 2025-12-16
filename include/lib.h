@@ -406,6 +406,53 @@ static __always_inline uint64_t uarf_rdpmc(uint32_t index) {
     return ((uint64_t) hi << 32) | lo;
 }
 
+/* I/O Ports handling */
+static __always_inline uint8_t uarf_inb(uint16_t port) {
+    uint8_t value;
+    asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+
+static __always_inline uint16_t uarf_inw(uint16_t port) {
+    uint16_t value;
+    asm volatile("inw %1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+
+static __always_inline uint32_t uarf_ind(uint16_t port) {
+    uint32_t value;
+    asm volatile("in %1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+
+static __always_inline uint32_t uarf_in(uint16_t port) {
+    return uarf_ind(port);
+}
+
+// static __always_inline uint32_t uarf_in_kmod(uint16_t port) {
+//     return uarf_pi_in(port);
+// }
+
+static __always_inline void uarf_outb(uint16_t port, uint8_t value) {
+    asm volatile("outb %0, %1" ::"a"(value), "Nd"(port));
+}
+
+static __always_inline void uarf_outw(uint16_t port, uint16_t value) {
+    asm volatile("outw %0, %1" ::"a"(value), "Nd"(port));
+}
+
+static __always_inline void uarf_outd(uint16_t port, uint32_t value) {
+    asm volatile("out %0, %1" ::"a"(value), "Nd"(port));
+}
+
+static __always_inline void uarf_out(uint16_t port, uint32_t value) {
+    uarf_outd(port, value);
+}
+
+static __always_inline void uarf_out_kmod(uint16_t port, uint32_t value) {
+    uarf_pi_out(port, value);
+}
+
 #define uarf_assert(cond)                                                                \
     if (!(cond)) {                                                                       \
         fprintf(stderr, "%s: Assert at %d failed: %s\n", __func__, __LINE__,             \

@@ -38,6 +38,16 @@
 #define _U64(x) _INTEGER(x, ULL)
 #endif
 
+#ifndef KB
+#define KB(x) (_U64(x) << 10)
+#endif
+#ifndef MB
+#define MB(x) (_U64(x) << 20)
+#endif
+#ifndef GB
+#define GB(x) (_U64(x) << 30)
+#endif
+
 #ifndef __ASSEMBLY__
 #ifndef _ptr
 #define _ptr(val) ((void *) (unsigned long) (val))
