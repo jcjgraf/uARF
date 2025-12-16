@@ -24,7 +24,7 @@ int uarf_smm_close(void) {
 
     int ret = close(kmod_fd);
     if (!ret) {
-        kmod_fd = 0;
+        kmod_fd = -1;
     }
     return ret;
 }
@@ -49,6 +49,14 @@ int uarf_smm_register(uint64_t ptr, size_t size) {
     if (ioctl(kmod_fd, UARF_SMM_IOCTL_REGISTER, &arg)) {
         perror("Failed to register SMM handler\n");
     }
+    return 0;
+}
 
+int uarf_smm_run(void) {
+    uarf_assert(kmod_fd > 0);
+
+    if (ioctl(kmod_fd, UARF_SMM_IOCTL_RUN, NULL)) {
+        perror("Failed to register SMM handler\n");
+    }
     return 0;
 }

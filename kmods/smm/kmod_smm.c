@@ -61,7 +61,7 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             return -EINVAL;
         }
 
-        break;
+        return 0;
     }
     case UARF_SMM_IOCTL_REGISTER: {
         pr_debug("uarf_smm: ioctl type REGISTER\n");
@@ -76,11 +76,13 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         // Allocate a page in the lower memory region
         if (!smm_buf_vaddr) {
             pr_debug("uarf_smm: Allocate SMM buffer\n");
+            // Maps as NX
             smm_buf_vaddr = get_zeroed_page(GFP_DMA32);
             if (!smm_buf_vaddr) {
                 pr_warn("uarf_smm: Failed to allocate SMM buffer\n");
                 return -ENOMEM;
             }
+
             smm_buf_paddr = virt_to_phys((void *)smm_buf_vaddr);
         }
 
@@ -88,9 +90,19 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             "uarf_smm: Allocated SMM buffer at vaddr: 0x%llx, paddr: 0x%llx\n",
             smm_buf_vaddr, smm_buf_paddr);
 
-        // TODO: Copy code over
+        // Copy code from userspace to kernel buffer
+        if (copy_from_user((void *)smm_buf_vaddr, (const void *)user_code.ptr,
+                           user_code.size)) {
+            pr_warn("uarf_smm: Failed to copy code from userspace\n");
+            return -EFAULT;
+        }
 
+        pr_debug("uarf_smm: Copied %zu bytes from 0x%llx to 0x%llx (0x%llx)\n",
+                 user_code.size, user_code.ptr, smm_buf_vaddr, smm_buf_paddr);
 
+        // pr_debug("uarf_smm: Test code by calling it\n");
+        // ((void (*)(void))smm_buf_vaddr)();
+        // pr_debug("uarf_smm: Call succeeded\n");
 
         // clang-format off
         asm volatile (
@@ -100,12 +112,26 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         );
         // clang-format on
 
-        break;
+        return 0;
     }
     case UARF_SMM_IOCTL_RUN: {
         pr_debug("uarf_smm: ioctl of type RUN\n");
 
-        break;
+        if (!smm_buf_vaddr) {
+            pr_warn("uarf_smm: SMM buffer not initialized\n");
+            return -EFAULT;
+        }
+
+        // clang-format off
+        asm volatile (
+            "out %0, %1\n\t"
+            :: "a"(SMM_CMD_RUN), "Nd"(SMM_HANDLER)
+            :
+        );
+        // clang-format on
+
+
+        return 0;
     }
     default: {
         pr_warn("uarf_smm: illegal ioctl received: %u\n", cmd);
