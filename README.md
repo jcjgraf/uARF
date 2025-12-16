@@ -14,6 +14,7 @@ uARF is a framework that facilitates and supports the reverse engineering and un
 - **KVM Selftest Integration**: Run arbitrary code in guest supervisor/user mode.
 - **Speculative Execution Experiments**: Includes helper functions and snippets for writing Spetre experiments.
 - **Logging & Tooling**: Built-in logging and various useful tools.
+- **Arbitrary SMM Code Execution**: Easily run arbitrary code in SMM (required custom firmware).
 
 ## Getting Started
 
@@ -42,11 +43,12 @@ uARF can be used in two ways:
 
 ## Kernel Modules
 
-uARF comes with three kernel modules:
+uARF comes with the following kernel modules:
 
-- Privileged Instruction (pi): Run a privileged instruction as a user
-- Run as Privileged (rap): Run arbitrary code as supervisor
-- Dump cr3 (cr3): Reading `/proc/uarf_cr3` returns the cr3 of all processes
+- **Privileged Instruction (pi)**: Run a privileged instruction as a user
+- **Run as Privileged (rap)**: Run arbitrary code as supervisor
+- **Dump cr3 (cr3)**: Reading `/proc/uarf_cr3` returns the cr3 of all processes
+- **Run in SMM (smm)**: Run arbitrary code in SMM (requires custom firmware)
 
 ### How to
 
@@ -87,7 +89,9 @@ The Linux Kernel provides a selftest environment that allow to run KVM based gue
 See [[./tools/README.md]]
 
 ## Thanks
+
 This work was influenced by several excellent projects:
+
 - The snippet-based assembler design was inspired by [retbleed](https://github.com/comsec-group/retbleed) and [BPI](https://github.com/comsec-group/bprc).
 - [KTF](https://github.com/KernelTestFramework/ktf) served as inspiration on how to structure low-level experiments and helped deepen my understanding of concepts such as privilege transitions.
 
