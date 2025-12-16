@@ -1,7 +1,7 @@
 # ELF Function Patcher
 
 This script patches an ELF binary by overwriting the machine code of an existing function with custom assembly.
-It works by assembling provided `.S` file into raw bytes and writing those bytes into the correct offset inside the target ELF.
+It works by assembling a provided `.S` file into raw bytes and writing those bytes into the correct offset inside the target ELF.
 
 ## Usage
 `./patcher.sh [OPTIONS] ELF PATCH OFFSET`
