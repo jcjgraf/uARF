@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -19,3 +20,8 @@ int uarf_smm_close(void);
  * Ping the SMM by sending a value that gets modified in the SMM.
  */
 uint64_t uarf_smm_ping(uint64_t val);
+
+/**
+ * Register new code for the SMM.
+ */
+int uarf_smm_register(uint64_t ptr, size_t size);

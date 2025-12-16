@@ -3,13 +3,15 @@
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #endif
 
 typedef struct ucode ucode;
 struct ucode {
+    // Pointer to beginning of code region.
     uint64_t ptr;
+    // Number of bytes in code region.
     size_t size;
 };
 

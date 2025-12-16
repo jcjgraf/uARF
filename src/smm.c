@@ -40,3 +40,15 @@ uint64_t uarf_smm_ping(uint64_t val) {
 
     return arg;
 }
+
+int uarf_smm_register(uint64_t ptr, size_t size) {
+    uarf_assert(kmod_fd > 0);
+
+    ucode arg = {ptr, size};
+
+    if (ioctl(kmod_fd, UARF_SMM_IOCTL_REGISTER, &arg)) {
+        perror("Failed to register SMM handler\n");
+    }
+
+    return 0;
+}

@@ -4,6 +4,7 @@
  * This module assumes the presence of a special SMI handler.
  */
 
+#include <asm/io.h>
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -25,6 +26,9 @@ static int major;
 static struct class *cls;
 static struct device *dev;
 
+static uint64_t smm_buf_vaddr = 0;
+static phys_addr_t smm_buf_paddr = 0;
+
 static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_debug("uarf_smm: ioctl received\n");
     (void)file;
@@ -35,11 +39,11 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         uint64_t value = arg;
         if (copy_from_user(&value, (uint64_t *)arg, sizeof(value))) {
-            pr_warn("Failed to copy data from user\n");
+            pr_warn("uarf_smm: Failed to copy data from user\n");
             return -EINVAL;
         }
 
-        pr_debug("Send value 0x%llx\n", value);
+        pr_debug("uarf_smm: Send value 0x%llx\n", value);
 
         // clang-format off
         asm volatile (
@@ -50,10 +54,10 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         );
         // clang-format on
 
-        pr_debug("Receive value 0x%llx\n", value);
+        pr_debug("uarf_smm: Receive value 0x%llx\n", value);
 
         if (copy_to_user((uint64_t *)arg, &value, sizeof(value))) {
-            pr_warn("Failed to copy data back to user\n");
+            pr_warn("uarf_smm: Failed to copy data back to user\n");
             return -EINVAL;
         }
 
@@ -69,20 +73,29 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             return -EINVAL;
         }
 
-        // SMM runs in protected mode without paging. Therefore, the code needs
-        // to be placed physically close to SMRAM.
-        // TODO: allocate a low memory region and copy code over
-        uint32_t smm_ptr = 0x0;
+        // Allocate a page in the lower memory region
+        if (!smm_buf_vaddr) {
+            pr_debug("uarf_smm: Allocate SMM buffer\n");
+            smm_buf_vaddr = get_zeroed_page(GFP_DMA32);
+            if (!smm_buf_vaddr) {
+                pr_warn("uarf_smm: Failed to allocate SMM buffer\n");
+                return -ENOMEM;
+            }
+            smm_buf_paddr = virt_to_phys((void *)smm_buf_vaddr);
+        }
 
-        // Hand pointer over to SMM
-        // By convention, the SMI handler reads the pointer from register RSI
-        uint32_t value = SMM_CMD_REGISTER;
-        uint16_t port = SMM_HANDLER;
+        pr_debug(
+            "uarf_smm: Allocated SMM buffer at vaddr: 0x%llx, paddr: 0x%llx\n",
+            smm_buf_vaddr, smm_buf_paddr);
+
+        // TODO: Copy code over
+
+
 
         // clang-format off
         asm volatile (
             "out %0, %1\n\t"
-            :"+a"(value) : "Nd"(port), "S"(smm_ptr)
+            :: "a"(SMM_CMD_REGISTER), "Nd"(SMM_HANDLER), "c"(smm_buf_paddr)
             :
         );
         // clang-format on
@@ -96,7 +109,7 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     }
     default: {
         pr_warn("uarf_smm: illegal ioctl received: %u\n", cmd);
-        pr_debug("RUN: %lu\n", UARF_SMM_IOCTL_RUN);
+        pr_debug("RUN: %u\n", UARF_SMM_IOCTL_RUN);
         return -EINVAL;
     }
     }
@@ -111,6 +124,7 @@ static char *devnode(const struct device *dev, umode_t *mode) {
 #else
 static char *devnode(struct device *dev, umode_t *mode) {
 #endif
+    (void)dev;
     if (mode) {
         *mode = 0666; // Set read/write permissions for all users
     }
@@ -126,10 +140,10 @@ static int __init smm_init(void) {
 
     major = register_chrdev(0, DEV_NAME, &fops);
     if (major < 0) {
-        pr_alert("Failed to register device\n");
+        pr_alert("uarf_smm: Failed to register device\n");
         return major;
     }
-    pr_debug("Registered device with major number %d\n", major);
+    pr_debug("uarf_smm: Registered device with major number %d\n", major);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
     cls = class_create(DEV_NAME);
@@ -138,7 +152,7 @@ static int __init smm_init(void) {
 #endif
 
     if (IS_ERR(cls)) {
-        pr_alert("Failed to create class\n");
+        pr_alert("uarf_smm: Failed to create class\n");
         unregister_chrdev(major, DEV_NAME);
         return PTR_ERR(cls);
     }
@@ -147,13 +161,13 @@ static int __init smm_init(void) {
 
     dev = device_create(cls, NULL, MKDEV(major, 0), NULL, DEV_NAME);
     if (IS_ERR(dev)) {
-        pr_alert("Failed to create device\n");
+        pr_alert("uarf_smm: Failed to create device\n");
         class_destroy(cls);
         unregister_chrdev(major, DEV_NAME);
         return PTR_ERR(dev);
     }
 
-    pr_debug("Device initialized successfully\n");
+    pr_debug("uarf_smm: Device initialized successfully\n");
 
     return 0;
 }
@@ -165,7 +179,7 @@ static void __exit smm_exit(void) {
     class_destroy(cls);
     unregister_chrdev(major, DEV_NAME);
 
-    pr_info("Device exited successfully\n");
+    pr_info("uarf_smm: Device exited successfully\n");
 }
 
 module_init(smm_init);
