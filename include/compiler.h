@@ -75,6 +75,12 @@
 #ifndef __noinline
 #define __noinline __attribute__((__noinline__))
 #endif
+#ifndef __used
+#define __used __attribute__((__used__))
+#endif
+#ifndef __unused
+#define __unused __attribute__((__unused__))
+#endif
 
 #ifndef __text
 #define __text __section(".text")

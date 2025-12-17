@@ -106,7 +106,7 @@ float uarf_es_effectiveness(Es *es, void *victim, size_t reps, bool is_in_cache(
     uint64_t num_evicted = 0;
 
     for (size_t i = 0; i < reps; i++) {
-        *(volatile uint64_t *) &victim;
+        *(volatile char *) &victim;
         es_access(es, 1);
         num_evicted += is_in_cache(_ptr(victim)) ? 0 : 1;
     }

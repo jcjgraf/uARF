@@ -575,7 +575,7 @@ static volatile uint64_t uarf_loc = 0;
 /**
  * Get mean cached access time over `rounds` rounds.
  */
-static uint64_t __always_inline uarf_get_access_time_cached(uint64_t rounds) {
+static __always_inline uint64_t uarf_get_access_time_cached(uint64_t rounds) {
     uint64_t dt = 0;
     for (uint64_t i = 0; i < rounds; i++) {
         uarf_mfence();
@@ -590,7 +590,7 @@ static uint64_t __always_inline uarf_get_access_time_cached(uint64_t rounds) {
 /**
  * Get mean uncached access time over `rounds` rounds.
  */
-static uint64_t __always_inline uarf_get_access_time_uncached(uint64_t rounds) {
+static __always_inline uint64_t uarf_get_access_time_uncached(uint64_t rounds) {
     uint64_t dt = 0;
     for (uint64_t i = 0; i < rounds; i++) {
         uarf_mfence();

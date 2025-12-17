@@ -12,7 +12,7 @@
 #define UARF_TEST_CASE_PREFIX test_case_
 
 #define UARF_TEST_CASE(name)                                                             \
-    static unsigned long __noinline __text CAT(UARF_TEST_CASE_PREFIX, name)(void)
+    static unsigned long __noinline __unused __text CAT(UARF_TEST_CASE_PREFIX, name)(void)
 
 #define UARF_TEST_CASE_ARG(name, arg)                                                    \
     static unsigned long __noinline __text CAT(UARF_TEST_CASE_PREFIX, name)(void *arg)
@@ -40,6 +40,11 @@
                              STR((cond)));                                               \
             exit(1);                                                                     \
         }                                                                                \
+    })
+#define UARF_TEST_FAIL(...)                                                              \
+    ({                                                                                   \
+        UARF_LOG_ERROR("Test failed: " __VA_ARGS__);                                     \
+        return 1;                                                                        \
     })
 
 #define UARF_INIT_SRAND(var)                                                             \
