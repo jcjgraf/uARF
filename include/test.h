@@ -32,7 +32,8 @@
         out;                                                                             \
     })
 
-#define UARF_TEST_PASS() return 0
+#define UARF_TEST_PASS() return 0;
+
 #define UARF_TEST_ASSERT(cond)                                                           \
     ({                                                                                   \
         if (!(cond)) {                                                                   \
@@ -41,6 +42,7 @@
             exit(1);                                                                     \
         }                                                                                \
     })
+
 #define UARF_TEST_FAIL(...)                                                              \
     ({                                                                                   \
         UARF_LOG_ERROR("Test failed: " __VA_ARGS__);                                     \
@@ -48,6 +50,8 @@
     })
 
 #define UARF_INIT_SRAND(var)                                                             \
-    uint32_t var;                                                                        \
-    asm("rdrand %0" : "=r"(var));                                                        \
-    srand(var)
+    ({                                                                                   \
+        uint32_t var;                                                                    \
+        asm("rdrand %0" : "=r"(var));                                                    \
+        srand(var);                                                                      \
+    })

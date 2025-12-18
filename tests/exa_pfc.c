@@ -6,85 +6,179 @@
 #include "lib.h"
 #include "pfc.h"
 #include "pfc_amd.h"
+#include "pfc_intel.h"
 #include "spec_lib.h"
 #include "test.h"
+#include "uarch.h"
 
 #ifdef UARF_LOG_TAG
 #undef UARF_LOG_TAG
 #define UARF_LOG_TAG UARF_LOG_TAG_TEST
 #endif
 
-static void func1_loop(void) {
+static __noinline void func1_loop(void) {
     volatile uint64_t a = 5;
     for (size_t i = 0; i < 10; i++) {
         a *= 3;
     }
 
-    *(volatile uint64_t *) &a;
+    *(volatile uint64_t *)&a;
 }
 
-UARF_TEST_CASE(read) {
-    UarfPfc pfc;
-    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR);
+#if UARF_IS_INTEL()
+#define FUNC1_LOOP_INSNS_SYS 63
+#define FUNC1_LOOP_INSNS_RDPMC 18 // Between 12 and 18
+#elif UARF_IS_AMD()
+#define FUNC1_LOOP_INSNS_SYS 65
+#define FUNC1_LOOP_INSNS_RDPMC 44
+#endif
 
-    uint64_t start;
-    read(pfc.fd, &start, 8);
+
+/**
+ * Example as copied from `man perv_event_open`.
+ */
+UARF_TEST_CASE(man) {
+    int fd;
+    long long count;
+    struct perf_event_attr pe;
+    memset(&pe, 0, sizeof(pe));
+    pe.type = PERF_TYPE_RAW;
+    pe.size = sizeof(pe);
+#if UARF_IS_INTEL()
+    // pe.config = UARF_INTEL_INST_RETIRED_PREC_DIST.config;
+    pe.config = UARF_INTEL_INST_RETIRED_ANY_P.config;
+#elif UARF_IS_AMD()
+    pe.config = UARF_AMD_EX_RET_INSTR.config;
+#endif
+    pe.disabled = 1;
+    pe.exclude_kernel = 1;
+    pe.exclude_hv = 1;
+
+    fd = uarf_perf_event_open(&pe, 0, -1, -1, 0);
+    if (fd == -1) {
+        UARF_TEST_FAIL("Failed to open: %s\n", strerror(errno));
+    }
+
+    if (ioctl(fd, PERF_EVENT_IOC_RESET, 0) == -1) {
+        UARF_TEST_FAIL("Failed to reset\n");
+    }
+    if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1) {
+        UARF_TEST_FAIL("Failed to enable\n");
+    }
 
     func1_loop();
 
-    uint64_t end;
-    read(pfc.fd, &end, 8);
+    if (ioctl(fd, PERF_EVENT_IOC_DISABLE, 0) == -1) {
+        UARF_TEST_FAIL("Failed to disable\n");
+    }
+    if (read(fd, &count, sizeof(count)) != sizeof(count)) {
+        UARF_TEST_FAIL("Failed to read\n");
+    }
 
-    printf("%lu\n", end - start);
+    printf("count: %lld\n", count);
+    UARF_TEST_ASSERT(FUNC1_LOOP_INSNS_SYS == count);
+
+    if (close(fd) == -1) {
+        UARF_TEST_FAIL("Failed to close\n");
+    }
+
+    UARF_TEST_PASS();
+}
+
+/**
+ * Basic usage example, using read to extract the value.
+ */
+UARF_TEST_CASE(basic) {
+    UarfPfc pfc = (UarfPfc){.event = UARF_INTEL_INST_RETIRED_PREC_DIST,
+                            .exclude = UARF_PFC_EXCLUDE_KERNEL};
+#if UARF_IS_INTEL()
+    // uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_PREC_DIST,
+    // UARF_PFC_EXCLUDE_KERNEL);
+    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
+#elif UARF_IS_AMD()
+    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+#endif
+
+    uarf_pfc_stop(&pfc);
+    uarf_pfc_reset(&pfc);
+    uarf_pfc_start(&pfc);
+
+    func1_loop();
+
+    uarf_pfc_stop(&pfc);
+    uint64_t count = uarf_pfc_read(&pfc);
+    printf("count: %lu\n", count);
+    UARF_TEST_ASSERT(FUNC1_LOOP_INSNS_SYS == count);
 
     uarf_pfc_deinit(&pfc);
     UARF_TEST_PASS();
 }
 
+/**
+ * Basic usage example using the rdpmc instruction to extract the value.
+ *
+ * Calculate difference manually, otherwise we may get noise introduced by the
+ * ioctl
+ */
 UARF_TEST_CASE(rdpmc) {
     UarfPfc pfc;
-    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR);
 
-    uint64_t start = uarf_pfc_read(&pfc);
+#if UARF_IS_INTEL()
+    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
+    // uarf_pfc_init(&pfc, 0xc0, UARF_PFC_EXCLUDE_KERNEL);
+#elif UARF_IS_AMD()
+    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+#endif
+
+    uarf_pfc_reset(&pfc);
+    uarf_pfc_start(&pfc);
+
+    uint64_t start = uarf_pfc_read_rdpmc(&pfc);
 
     func1_loop();
 
-    uint64_t end = uarf_pfc_read(&pfc);
+    uint64_t count = uarf_pfc_read_rdpmc(&pfc) - start;
 
-    printf("%lu\n", end - start);
+    printf("%lu\n", count);
+    UARF_TEST_ASSERT(FUNC1_LOOP_INSNS_RDPMC >= count);
 
     uarf_pfc_deinit(&pfc);
     UARF_TEST_PASS();
 }
 
-UARF_TEST_CASE(pm) {
-    UarfPm measure;
+UARF_TEST_CASE(two_pmc) {
+    UarfPfc pfc;
+    UarfPfc pfc2;
 
-    // uarf_pm_init(&measure, AMD_EX_RET_INSTR);
-    uarf_pm_init(&measure, UARF_AMD_EX_RET_BRN_IND_MISP);
+#if UARF_IS_INTEL()
+    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
+    uarf_pfc_init(&pfc2, UARF_INTEL_INST_RETIRED_PREC_DIST,
+                  UARF_PFC_EXCLUDE_KERNEL);
+#elif UARF_IS_AMD()
+    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+    uarf_pfc_init(&pfc2, UARF_AMD_EX_RET_INSTR,
+                  UARF_PFC_EXCLUDE_KERNEL);
+#endif
 
-    uarf_mfence();
-    uarf_lfence();
-    uarf_pm_start(&measure);
-    uarf_pm_stop(&measure);
+    uarf_pfc_reset(&pfc);
+    uarf_pfc_reset(&pfc2);
 
-    printf("%lu\n", uarf_pm_get(&measure));
+    uarf_pfc_start(&pfc);
+    uarf_pfc_start(&pfc2);
 
-    uarf_pm_reset(&measure);
-    uarf_mfence();
-    uarf_lfence();
-    uarf_pm_start(&measure);
-    uarf_pm_stop(&measure);
+    func1_loop();
 
-    printf("%lu\n", uarf_pm_get(&measure));
+    uarf_pfc_stop(&pfc2);
+    uarf_pfc_stop(&pfc);
 
-    uarf_pm_deinit(&measure);
+    uint64_t count = uarf_pfc_read(&pfc);
+    uint64_t count2 = uarf_pfc_read(&pfc2);
 
-    UARF_TEST_PASS();
-}
+    printf("count1: %lu\n", count);
+    printf("count2: %lu\n", count2);
 
-UARF_TEST_CASE(pmg) {
-    UarfPmg pmg;
+    UARF_TEST_ASSERT(count2 == FUNC1_LOOP_INSNS_SYS);
+    UARF_TEST_ASSERT(count >= count2);
 
     UARF_TEST_PASS();
 }
@@ -114,9 +208,11 @@ UARF_TEST_CASE(raw_asm) {
     UarfPfc pfc2;
     UarfPfc pfc3;
 
-    uarf_pfc_init(&pfc1, UARF_AMD_EX_RET_BRN_IND_MISP);
-    uarf_pfc_init(&pfc2, UARF_AMD_EX_RET_IND_BRCH_INSTR);
-    // uarf_pfc_init(&pfc3, UARF_AMD_EX_RET_INSTR);
+    (void)pfc3;
+
+    uarf_pfc_init(&pfc1, UARF_AMD_EX_RET_BRN_IND_MISP, UARF_PFC_EXCLUDE_KERNEL);
+    uarf_pfc_init(&pfc2, UARF_AMD_EX_RET_IND_BRCH_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+    // uarf_pfc_init(&pfc3, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
 
     UarfJitaCtxt jita = uarf_jita_init();
     UarfStub stub = uarf_stub_init();
@@ -129,13 +225,13 @@ UARF_TEST_CASE(raw_asm) {
 
     // Push PFC indexes to the input stack
     // Start measure
-    uarf_cstack_push(&data.istack, pfc1.index);
-    uarf_cstack_push(&data.istack, pfc2.index);
+    uarf_cstack_push(&data.istack, pfc1.rdpmc_index);
+    uarf_cstack_push(&data.istack, pfc2.rdpmc_index);
     // uarf_cstack_push(&data.istack, pfc3.index);
 
     // Stop measure
-    uarf_cstack_push(&data.istack, pfc1.index);
-    uarf_cstack_push(&data.istack, pfc2.index);
+    uarf_cstack_push(&data.istack, pfc1.rdpmc_index);
+    uarf_cstack_push(&data.istack, pfc2.rdpmc_index);
     // uarf_cstack_push(&data.istack, pfc3.index);
 
     // UARF_TEST_ASSERT(data.ustack.index == 0);
@@ -197,14 +293,18 @@ UARF_TEST_CASE(raw_asm) {
     UARF_TEST_ASSERT(data.istack.index == 0);
     UARF_TEST_ASSERT(data.ostack.index == 0);
 
-    uint64_t pfc1_count = uarf_pm_transform_raw1(&pfc1, pfc1_end_lo, pfc1_end_hi) -
-                          uarf_pm_transform_raw1(&pfc1, pfc1_start_lo, pfc1_start_hi);
+    uint64_t pfc1_count =
+        uarf_pm_transform_raw1(&pfc1, pfc1_end_lo, pfc1_end_hi) -
+        uarf_pm_transform_raw1(&pfc1, pfc1_start_lo, pfc1_start_hi);
 
-    uint64_t pfc2_count = uarf_pm_transform_raw1(&pfc2, pfc2_end_lo, pfc2_end_hi) -
-                          uarf_pm_transform_raw1(&pfc2, pfc2_start_lo, pfc2_start_hi);
+    uint64_t pfc2_count =
+        uarf_pm_transform_raw1(&pfc2, pfc2_end_lo, pfc2_end_hi) -
+        uarf_pm_transform_raw1(&pfc2, pfc2_start_lo, pfc2_start_hi);
 
-    // uint64_t pfc3_count = uarf_pm_transform_raw1(&pfc3, pfc3_end_lo, pfc3_end_hi) -
-    //                       uarf_pm_transform_raw1(&pfc3, pfc3_start_lo, pfc3_start_hi);
+    // uint64_t pfc3_count = uarf_pm_transform_raw1(&pfc3, pfc3_end_lo,
+    // pfc3_end_hi) -
+    //                       uarf_pm_transform_raw1(&pfc3, pfc3_start_lo,
+    //                       pfc3_start_hi);
 
     printf("pfc1: %lu\n", pfc1_count);
     printf("pfc2: %lu\n", pfc2_count);
@@ -214,10 +314,12 @@ UARF_TEST_CASE(raw_asm) {
 }
 
 UARF_TEST_SUITE() {
-    UARF_TEST_RUN_CASE(read);
+    // uarf_log_system_base_level = UARF_LOG_LEVEL_TRACE;
+
+    UARF_TEST_RUN_CASE(man);
+    UARF_TEST_RUN_CASE(basic);
     UARF_TEST_RUN_CASE(rdpmc);
-    UARF_TEST_RUN_CASE(pm);
-    UARF_TEST_RUN_CASE(pmg);
-    UARF_TEST_RUN_CASE(raw_asm);
+    UARF_TEST_RUN_CASE(two_pmc);
+    // UARF_TEST_RUN_CASE(raw_asm);
     return 0;
 }
