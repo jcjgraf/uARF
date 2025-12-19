@@ -8,32 +8,33 @@
 #include <string.h>
 #include <sys/mman.h>
 
-int uarf_pfc_init(UarfPfc *pfc, UarfPfcEventConfig event, uint64_t exclude) {
-    UARF_LOG_TRACE("(%p, 0x%lx, 0x%lx)\n", pfc, event.config, exclude);
+int uarf_pfc_init(UarfPfc *pfc, UarfPfcConfig config) {
+    UARF_LOG_TRACE("(%p, 0x%lx)\n", pfc, config.pmu_conf);
+    uarf_assert(config.pmu_conf);
+
     memset(pfc, 0, sizeof(UarfPfc));
-    pfc->event = event;
+
+    pfc->config = config;
 
     struct perf_event_attr pe;
     memset(&pe, 0, sizeof(pe));
-    pe.type = PERF_TYPE_RAW;
+    pe.type = config.on_ecore ? 10 : PERF_TYPE_RAW; // Enable E-Core quirks
     pe.size = sizeof(pe);
-    pe.config = pfc->event.config;
-    pe.config1 = pfc->event.config1;
-    pe.config2 = pfc->event.config2;
-    // pe.config3 = pfc->event.config3; // Not supported on older Linux versions
+    pe.config = config.pmu_conf;
+    pe.config1 = config.pmu_conf1;
+    pe.config2 = config.pmu_conf2;
+    // pe.config3 = pfc->config.pmu_conf3; // Not supported on older Linux
+    // versions
     pe.sample_type = PERF_SAMPLE_CPU | PERF_SAMPLE_RAW | PERF_SAMPLE_IP;
 
-    // Start with the timer disabled. Leads to issues when wanting to use rdpmc,
-    // as then the index/offset are not initalised at the time when we extract
-    // them.
-    // pe.disabled = 1;
+    pe.disabled = config.start_disabled;
 
-    pe.exclude_user = !!(exclude & UARF_PFC_EXCLUDE_USER);
-    pe.exclude_kernel = !!(exclude & UARF_PFC_EXCLUDE_KERNEL);
-    pe.exclude_hv = !!(exclude & UARF_PFC_EXCLUDE_HV);
-    pe.exclude_idle = !!(exclude & UARF_PFC_EXCLUDE_IDLE);
-    pe.exclude_host = !!(exclude & UARF_PFC_EXCLUDE_HOST);
-    pe.exclude_guest = !!(exclude & UARF_PFC_EXCLUDE_GUEST);
+    pe.exclude_user = !!(config.exclude & UARF_PFC_EXCLUDE_USER);
+    pe.exclude_kernel = !!(config.exclude & UARF_PFC_EXCLUDE_KERNEL);
+    pe.exclude_hv = !!(config.exclude & UARF_PFC_EXCLUDE_HV);
+    pe.exclude_idle = !!(config.exclude & UARF_PFC_EXCLUDE_IDLE);
+    pe.exclude_host = !!(config.exclude & UARF_PFC_EXCLUDE_HOST);
+    pe.exclude_guest = !!(config.exclude & UARF_PFC_EXCLUDE_GUEST);
 
     // pe.precise_ip = 2; // Try to record immediately, but do not enforce
     // pid=0, cpu=-1 => Measure calling process/thread on any CPU

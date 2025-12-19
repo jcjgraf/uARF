@@ -33,7 +33,6 @@ static __noinline void func1_loop(void) {
 #define FUNC1_LOOP_INSNS_RDPMC 44
 #endif
 
-
 /**
  * Example as copied from `man perv_event_open`.
  */
@@ -45,10 +44,10 @@ UARF_TEST_CASE(man) {
     pe.type = PERF_TYPE_RAW;
     pe.size = sizeof(pe);
 #if UARF_IS_INTEL()
-    // pe.config = UARF_INTEL_INST_RETIRED_PREC_DIST.config;
-    pe.config = UARF_INTEL_INST_RETIRED_ANY_P.config;
+    // pe.config = UARF_INTEL_INST_RETIRED_PREC_DIST;
+    pe.config = UARF_INTEL_INST_RETIRED_ANY_P;
 #elif UARF_IS_AMD()
-    pe.config = UARF_AMD_EX_RET_INSTR.config;
+    pe.config = UARF_AMD_EX_RET_INSTR;
 #endif
     pe.disabled = 1;
     pe.exclude_kernel = 1;
@@ -89,15 +88,18 @@ UARF_TEST_CASE(man) {
  * Basic usage example, using read to extract the value.
  */
 UARF_TEST_CASE(basic) {
-    UarfPfc pfc = (UarfPfc){.event = UARF_INTEL_INST_RETIRED_PREC_DIST,
-                            .exclude = UARF_PFC_EXCLUDE_KERNEL};
+    UarfPfc pfc;
+
+    UarfPfcConfig config = (UarfPfcConfig){
 #if UARF_IS_INTEL()
-    // uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_PREC_DIST,
-    // UARF_PFC_EXCLUDE_KERNEL);
-    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
 #elif UARF_IS_AMD()
-    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_AMD_EX_RET_INSTR,
 #endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL,
+        .start_disabled = true};
+
+    uarf_pfc_init(&pfc, config);
 
     uarf_pfc_stop(&pfc);
     uarf_pfc_reset(&pfc);
@@ -123,13 +125,15 @@ UARF_TEST_CASE(basic) {
 UARF_TEST_CASE(rdpmc) {
     UarfPfc pfc;
 
+    UarfPfcConfig config = (UarfPfcConfig){
 #if UARF_IS_INTEL()
-    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
-    // uarf_pfc_init(&pfc, 0xc0, UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
 #elif UARF_IS_AMD()
-    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_AMD_EX_RET_INSTR,
 #endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL};
 
+    uarf_pfc_init(&pfc, config);
     uarf_pfc_reset(&pfc);
     uarf_pfc_start(&pfc);
 
@@ -150,15 +154,24 @@ UARF_TEST_CASE(two_pmc) {
     UarfPfc pfc;
     UarfPfc pfc2;
 
+    UarfPfcConfig config = (UarfPfcConfig){
 #if UARF_IS_INTEL()
-    uarf_pfc_init(&pfc, UARF_INTEL_INST_RETIRED_ANY_P, UARF_PFC_EXCLUDE_KERNEL);
-    uarf_pfc_init(&pfc2, UARF_INTEL_INST_RETIRED_PREC_DIST,
-                  UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_INTEL_INST_RETIRED_ANY_P,
 #elif UARF_IS_AMD()
-    uarf_pfc_init(&pfc, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
-    uarf_pfc_init(&pfc2, UARF_AMD_EX_RET_INSTR,
-                  UARF_PFC_EXCLUDE_KERNEL);
+        .pmu_conf = UARF_AMD_EX_RET_INSTR,
 #endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL};
+
+    UarfPfcConfig config2 = (UarfPfcConfig){
+#if UARF_IS_INTEL()
+        .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
+#elif UARF_IS_AMD()
+        .pmu_conf = UARF_AMD_EX_RET_INSTR,
+#endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL};
+
+    uarf_pfc_init(&pfc, config);
+    uarf_pfc_init(&pfc2, config2);
 
     uarf_pfc_reset(&pfc);
     uarf_pfc_reset(&pfc2);
@@ -210,8 +223,20 @@ UARF_TEST_CASE(raw_asm) {
 
     (void)pfc3;
 
-    uarf_pfc_init(&pfc1, UARF_AMD_EX_RET_BRN_IND_MISP, UARF_PFC_EXCLUDE_KERNEL);
-    uarf_pfc_init(&pfc2, UARF_AMD_EX_RET_IND_BRCH_INSTR, UARF_PFC_EXCLUDE_KERNEL);
+    UarfPfcConfig config1 = (UarfPfcConfig){
+#if UARF_IS_AMD()
+        .pmu_conf = UARF_AMD_EX_RET_BRN_IND_MISP,
+#endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL};
+
+    UarfPfcConfig config2 = (UarfPfcConfig){
+#if UARF_IS_AMD()
+        .pmu_conf = UARF_AMD_EX_RET_IND_BRCH_INSTR,
+#endif
+        .exclude = UARF_PFC_EXCLUDE_KERNEL};
+
+    uarf_pfc_init(&pfc1, config1);
+    uarf_pfc_init(&pfc2, config2);
     // uarf_pfc_init(&pfc3, UARF_AMD_EX_RET_INSTR, UARF_PFC_EXCLUDE_KERNEL);
 
     UarfJitaCtxt jita = uarf_jita_init();

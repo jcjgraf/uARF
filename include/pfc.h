@@ -43,29 +43,7 @@ union UarfPfcEventSel {
  *
  * From Linux Kernel events/perf_event.h
  */
-#define UARF_PFC_EVENT_SEL(args...) (((UarfPfcEventSel) {.bits = {args}}).value)
-
-/**
- * Configuration for a specific event.
- *
- * Each config is essentially a UarfPfcEventSel.
- *
- * Configurations, c3 is not supported on older kernels
- */
-typedef struct UarfPfcEventConfig UarfPfcEventConfig;
-struct UarfPfcEventConfig {
-    uint64_t config;
-    uint64_t config1;
-    uint64_t config2;
-    // uint64_t config3;
-};
-
-/**
- * Create a event config.
- */
-#define UARF_PFC_EVENT_CONFIG(args...)                                                   \
-    ((UarfPfcEventConfig) {                                                              \
-        .config = UARF_PFC_EVENT_SEL(args), .config1 = 0, .config2 = 0})
+#define UARF_PFC_PMU_CONFIG(args...) (((UarfPfcEventSel) {.bits = {args}}).value)
 
 /**
  * Flags to disable PMU for specific domains.
@@ -81,25 +59,49 @@ enum UarfPfcExclude {
 };
 
 /**
+ * Configuration for a specific event.
+ *
+ * Each config is essentially a UarfPfcEventSel.
+ *
+ * Configurations, c3 is not supported on older kernels
+ */
+typedef struct UarfPfcConfig UarfPfcConfig;
+struct UarfPfcConfig {
+    // UarfPfcEventSel 0, 1, 2 and 3
+    // 3 is not supported on older kernels. In practice I only encountered config 0
+    uint64_t pmu_conf;
+    uint64_t pmu_conf1;
+    uint64_t pmu_conf2;
+    // uint64_t pmu_conf3;
+
+    // Domains to exclude
+    uint64_t exclude;
+
+    // Have the counter disabled to start.
+    // Must not be true when wanting to use rdpmc, as it leads to issues, because then the
+    // index/offset are not initalised at the time when we extract them.
+    bool start_disabled;
+
+    // Whether to run the measurement on a E-Core
+    // On Intel this requires a specific configuration
+    bool on_ecore;
+};
+
+/**
  * A single performance monitor counter.
  */
 typedef struct UarfPfc UarfPfc;
 struct UarfPfc {
     // Event selection
-    UarfPfcEventConfig event;
-
-    // Comains to exclude
-    uint64_t exclude;
-
-    // Have the counter disabled to start.
-    // Must not be true when wanting to use rdpmc
-    bool start_disabled;
+    UarfPfcConfig config;
 
     // Open file descriptor as returned by parf_event_open
     int fd;
+
     // First page of mmaped ring buffer, containing metadata.
     // The subsequent pages are the actual ringbuffer
     struct perf_event_mmap_page *page;
+
     // The following fields are relevant when using the rdpmc instruction, as opposed to
     // the read system call, to read the counter. `index` is indicates the desired PMU,
     // while `offset` and `mask` are used to convert the retrieved value to the actual
@@ -201,7 +203,7 @@ __always_inline int uarf_perf_event_open(struct perf_event_attr *attr, pid_t pid
 /*
  * Initialize a PFC
  */
-int uarf_pfc_init(UarfPfc *pfc, UarfPfcEventConfig event, uint64_t exclude);
+int uarf_pfc_init(UarfPfc *pfc, UarfPfcConfig pfc_config);
 
 /*
  * De-initialize a PFC
