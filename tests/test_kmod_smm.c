@@ -25,7 +25,7 @@ UARF_TEST_CASE(ping) {
     UARF_TEST_PASS();
 }
 
-uarf_psnip_declare(smm_ret, psnip_ret);
+uarf_psnip_declare_define(psnip_ret, "ret\n\t");
 
 // Test the UARF_SMM_IOCTL_REGISTER and _RUN ioctl
 UARF_TEST_CASE(custom_handler) {
