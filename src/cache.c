@@ -1,6 +1,7 @@
 #include "cache.h"
+#include "uarch.h"
 
-#if defined UARCH && UARCH == zen4
+#if UARF_IS_UARCH(ZEN4)
 UarfCache cache = {
     .cache_line_bits = 6,
     .cache_line_size = (1 << 6),
