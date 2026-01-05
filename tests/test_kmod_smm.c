@@ -9,7 +9,7 @@
 #include "stub.h"
 #include "test.h"
 
-// Test the UARF_SM_IOCTL_PING ioctl
+// Test the UARF_SMM_IOCTL_PING ioctl
 UARF_TEST_CASE(ping) {
 
     uarf_assert(!uarf_smm_open());
