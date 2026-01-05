@@ -174,7 +174,7 @@ static int __init smm_init(void) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
     cls = class_create(DEV_NAME);
 #else
-    cls = class_create(THIS_MODULE, "pi");
+    cls = class_create(THIS_MODULE, "smm");
 #endif
 
     if (IS_ERR(cls)) {
