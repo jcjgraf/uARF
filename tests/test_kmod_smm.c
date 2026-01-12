@@ -36,8 +36,7 @@ UARF_TEST_CASE(custom_handler) {
     uarf_jita_push_psnip(&jita, &psnip_ret);
     uarf_jita_allocate(&jita, &stub, uarf_rand47());
 
-    uarf_assert(
-        !uarf_smm_register(stub.base_addr, stub.end_addr - stub.base_addr));
+    uarf_assert(!uarf_smm_register(stub.base_addr, stub.end_addr - stub.base_addr));
 
     uarf_assert(!uarf_smm_run());
     printf("We made it!\n");

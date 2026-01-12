@@ -165,7 +165,6 @@ int test(void) {
     u64 extra_pages = NUM_ADDITINAL_PAGES * 2 * (2 * 512);
     vm = __vm_create_with_one_vcpu(&vcpu, extra_pages, guest_main);
 
-
     // vm_init_descriptor_tables(vm);
     // vcpu_init_descriptor_tables(vcpu);
 

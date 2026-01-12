@@ -42,9 +42,8 @@ int uarf_pfc_init(UarfPfc *pfc, UarfPfcConfig config) {
     // TODO: Adjust to allow grouped events
     pfc->fd = uarf_perf_event_open(&pe, 0, -1, -1, PERF_FLAG_FD_NO_GROUP);
     if (pfc->fd == -1) {
-        UARF_LOG_ERROR(
-            "Error opening PFC 0x%llx: %d (%s)\nDo you run as root?\n",
-            pe.config, errno, strerror(errno));
+        UARF_LOG_ERROR("Error opening PFC 0x%llx: %d (%s)\nDo you run as root?\n",
+                       pe.config, errno, strerror(errno));
         return -1;
     }
 

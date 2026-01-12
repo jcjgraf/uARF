@@ -22,14 +22,14 @@ static __noinline void func1_loop(void) {
         a *= 3;
     }
 
-    *(volatile uint64_t *)&a;
+    *(volatile uint64_t *) &a;
 }
 
 #if UARF_IS_INTEL()
-#define FUNC1_LOOP_INSNS_SYS 63
+#define FUNC1_LOOP_INSNS_SYS   63
 #define FUNC1_LOOP_INSNS_RDPMC 18 // Between 12 and 18
 #elif UARF_IS_AMD()
-#define FUNC1_LOOP_INSNS_SYS 65
+#define FUNC1_LOOP_INSNS_SYS   65
 #define FUNC1_LOOP_INSNS_RDPMC 44
 #endif
 
@@ -90,7 +90,7 @@ UARF_TEST_CASE(man) {
 UARF_TEST_CASE(basic) {
     UarfPfc pfc;
 
-    UarfPfcConfig config = (UarfPfcConfig){
+    UarfPfcConfig config = (UarfPfcConfig) {
 #if UARF_IS_INTEL()
         .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
 #elif UARF_IS_AMD()
@@ -125,7 +125,7 @@ UARF_TEST_CASE(basic) {
 UARF_TEST_CASE(rdpmc) {
     UarfPfc pfc;
 
-    UarfPfcConfig config = (UarfPfcConfig){
+    UarfPfcConfig config = (UarfPfcConfig) {
 #if UARF_IS_INTEL()
         .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
 #elif UARF_IS_AMD()
@@ -154,7 +154,7 @@ UARF_TEST_CASE(two_pmc) {
     UarfPfc pfc;
     UarfPfc pfc2;
 
-    UarfPfcConfig config = (UarfPfcConfig){
+    UarfPfcConfig config = (UarfPfcConfig) {
 #if UARF_IS_INTEL()
         .pmu_conf = UARF_INTEL_INST_RETIRED_ANY_P,
 #elif UARF_IS_AMD()
@@ -162,7 +162,7 @@ UARF_TEST_CASE(two_pmc) {
 #endif
         .exclude = UARF_PFC_EXCLUDE_KERNEL};
 
-    UarfPfcConfig config2 = (UarfPfcConfig){
+    UarfPfcConfig config2 = (UarfPfcConfig) {
 #if UARF_IS_INTEL()
         .pmu_conf = UARF_INTEL_INST_RETIRED_PREC_DIST,
 #elif UARF_IS_AMD()
@@ -221,15 +221,15 @@ UARF_TEST_CASE(raw_asm) {
     UarfPfc pfc2;
     UarfPfc pfc3;
 
-    (void)pfc3;
+    (void) pfc3;
 
-    UarfPfcConfig config1 = (UarfPfcConfig){
+    UarfPfcConfig config1 = (UarfPfcConfig) {
 #if UARF_IS_AMD()
         .pmu_conf = UARF_AMD_EX_RET_BRN_IND_MISP,
 #endif
         .exclude = UARF_PFC_EXCLUDE_KERNEL};
 
-    UarfPfcConfig config2 = (UarfPfcConfig){
+    UarfPfcConfig config2 = (UarfPfcConfig) {
 #if UARF_IS_AMD()
         .pmu_conf = UARF_AMD_EX_RET_IND_BRCH_INSTR,
 #endif
@@ -318,13 +318,11 @@ UARF_TEST_CASE(raw_asm) {
     UARF_TEST_ASSERT(data.istack.index == 0);
     UARF_TEST_ASSERT(data.ostack.index == 0);
 
-    uint64_t pfc1_count =
-        uarf_pm_transform_raw1(&pfc1, pfc1_end_lo, pfc1_end_hi) -
-        uarf_pm_transform_raw1(&pfc1, pfc1_start_lo, pfc1_start_hi);
+    uint64_t pfc1_count = uarf_pm_transform_raw1(&pfc1, pfc1_end_lo, pfc1_end_hi) -
+                          uarf_pm_transform_raw1(&pfc1, pfc1_start_lo, pfc1_start_hi);
 
-    uint64_t pfc2_count =
-        uarf_pm_transform_raw1(&pfc2, pfc2_end_lo, pfc2_end_hi) -
-        uarf_pm_transform_raw1(&pfc2, pfc2_start_lo, pfc2_start_hi);
+    uint64_t pfc2_count = uarf_pm_transform_raw1(&pfc2, pfc2_end_lo, pfc2_end_hi) -
+                          uarf_pm_transform_raw1(&pfc2, pfc2_start_lo, pfc2_start_hi);
 
     // uint64_t pfc3_count = uarf_pm_transform_raw1(&pfc3, pfc3_end_lo,
     // pfc3_end_hi) -

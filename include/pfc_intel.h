@@ -20,4 +20,5 @@
  * This is a precise version (that is, uses PEBS) of the event that counts instructions
  * retired.
  */
-#define UARF_INTEL_INST_RETIRED_PREC_DIST UARF_PFC_PMU_CONFIG(.event = 0xC0, .umask = 0x01)
+#define UARF_INTEL_INST_RETIRED_PREC_DIST                                                \
+    UARF_PFC_PMU_CONFIG(.event = 0xC0, .umask = 0x01)

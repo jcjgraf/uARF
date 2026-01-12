@@ -16,9 +16,9 @@
 
 #define SMM_HANDLER 0xb2
 
-#define SMM_CMD_PING 0x11
+#define SMM_CMD_PING     0x11
 #define SMM_CMD_REGISTER 0x12
-#define SMM_CMD_RUN 0x13
+#define SMM_CMD_RUN      0x13
 
 #define DEV_NAME "uarf_smm"
 
@@ -31,14 +31,14 @@ static phys_addr_t smm_buf_paddr = 0;
 
 static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     pr_debug("uarf_smm: ioctl received\n");
-    (void)file;
+    (void) file;
 
     switch (cmd) {
     case UARF_SMM_IOCTL_PING: {
         pr_debug("uarf_smm ioctl type ping\n");
 
         uint64_t value = arg;
-        if (copy_from_user(&value, (uint64_t *)arg, sizeof(value))) {
+        if (copy_from_user(&value, (uint64_t *) arg, sizeof(value))) {
             pr_warn("uarf_smm: Failed to copy data from user\n");
             return -EINVAL;
         }
@@ -56,7 +56,7 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         pr_debug("uarf_smm: Receive value 0x%llx\n", value);
 
-        if (copy_to_user((uint64_t *)arg, &value, sizeof(value))) {
+        if (copy_to_user((uint64_t *) arg, &value, sizeof(value))) {
             pr_warn("uarf_smm: Failed to copy data back to user\n");
             return -EINVAL;
         }
@@ -68,7 +68,7 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
         ucode user_code;
 
-        if (copy_from_user(&user_code, (const void *)arg, sizeof(user_code))) {
+        if (copy_from_user(&user_code, (const void *) arg, sizeof(user_code))) {
             pr_warn("uarf_smm: failed to copy from userspace");
             return -EINVAL;
         }
@@ -83,15 +83,14 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
                 return -ENOMEM;
             }
 
-            smm_buf_paddr = virt_to_phys((void *)smm_buf_vaddr);
+            smm_buf_paddr = virt_to_phys((void *) smm_buf_vaddr);
         }
 
-        pr_debug(
-            "uarf_smm: Allocated SMM buffer at vaddr: 0x%llx, paddr: 0x%llx\n",
-            smm_buf_vaddr, smm_buf_paddr);
+        pr_debug("uarf_smm: Allocated SMM buffer at vaddr: 0x%llx, paddr: 0x%llx\n",
+                 smm_buf_vaddr, smm_buf_paddr);
 
         // Copy code from userspace to kernel buffer
-        if (copy_from_user((void *)smm_buf_vaddr, (const void *)user_code.ptr,
+        if (copy_from_user((void *) smm_buf_vaddr, (const void *) user_code.ptr,
                            user_code.size)) {
             pr_warn("uarf_smm: Failed to copy code from userspace\n");
             return -EFAULT;
@@ -130,7 +129,6 @@ static long smm_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         );
         // clang-format on
 
-
         return 0;
     }
     default: {
@@ -150,7 +148,7 @@ static char *devnode(const struct device *dev, umode_t *mode) {
 #else
 static char *devnode(struct device *dev, umode_t *mode) {
 #endif
-    (void)dev;
+    (void) dev;
     if (mode) {
         *mode = 0666; // Set read/write permissions for all users
     }
