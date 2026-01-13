@@ -26,18 +26,26 @@
 #define uarf_psnip_declare_define(name, str)                                                  \
     extern char __text uarf_psnip_start(name)[];                                              \
     extern char __text uarf_psnip_end(name)[];                                                \
-    asm(".pushsection .text\n\t"                                                         \
-    ".align 0x1000\n\t"                                                                  \
+    asm(".pushsection .text\n\t"                                                              \
+         ".align 0x1000\n\t"                                                                  \
     STR(uarf_psnip_start(name)) ":\n\t"                                                       \
-    str                                                                                  \
+    str                                                                                       \
     STR(uarf_psnip_end(name)) ":\n\t"                                                         \
-    "nop\n\t"                                                                            \
-    ".popsection\n\t"                                                                    \
-    );                                                                                   \
-    UarfPsnip __data name = {                                                              \
+    "nop\n\t"                                                                                 \
+    ".popsection\n\t"                                                                         \
+    );                                                                                        \
+    UarfPsnip __data name = {                                                                 \
         .ptr = uarf_psnip_start(name),                                                        \
         .end_ptr = uarf_psnip_end(name),                                                      \
     }
+
+#define uarf_psnip_c(name, ret_type, signature, ...)                                            \
+    ret_type __section(".text." #name) __used name signature __VA_ARGS__                        \
+    void __section(".text." #name) __attribute__((naked)) __used name##__snip_end_func(void) {  \
+         asm volatile("nop");                                                                   \
+    }                                                                                           \
+    asm(".set " STR(uarf_psnip_start(name)) ", " STR(name) "\n\t"                               \
+        ".set " STR(uarf_psnip_end(name))   ", " STR(name##__snip_end_func) "\n\t")
 // clang-format on
 
 /**

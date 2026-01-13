@@ -25,6 +25,12 @@ void uarf_stub_add(UarfStub *stub, uint64_t start, uint64_t size) {
         return;
     }
 
+    if (size > PAGE_SIZE) {
+        UARF_LOG_WARNING("Allocating suspiciously large snippet of size "
+                         "'%lu'B. Is this correct?\n",
+                         size);
+    }
+
     // Check if enough space left
     while (uarf_stub_size_free(stub) < size) {
         uarf_stub_extend(stub);

@@ -11,8 +11,8 @@
 #include "psnip.h"
 #include "stub.h"
 #include "test.h"
-#include "utils.h"
 #include "vsnip.h"
+#include <string.h>
 
 #ifdef UARF_LOG_TAG
 #undef UARF_LOG_TAG
@@ -356,6 +356,29 @@ UARF_TEST_CASE(vsnip_fill) {
     UARF_TEST_PASS();
 }
 
+uarf_psnip_c(jita_c_inc, int, (int a), { return a + 1; });
+uarf_psnip_declare(jita_c_inc, psnip_c_inc);
+
+// Test psnip_c_src
+UARF_TEST_CASE(psnip_c_src) {
+    UarfJitaCtxt ctxt = uarf_jita_init();
+    UarfStub local_stub = uarf_stub_init();
+
+    uarf_jita_push_psnip(&ctxt, &psnip_c_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_ret_val);
+
+    uarf_jita_allocate(&ctxt, &local_stub, uarf_rand47());
+
+    int (*a)(int) = (int (*)(int)) local_stub.ptr;
+    int var = a(5);
+
+    UARF_TEST_ASSERT(var == 6);
+
+    uarf_jita_deallocate(&ctxt, &local_stub);
+
+    UARF_TEST_PASS();
+}
+
 UARF_TEST_SUITE() {
 
     uarf_jita_push_psnip(&jita_inc3, &psnip_inc);
@@ -382,6 +405,7 @@ UARF_TEST_SUITE() {
     UARF_TEST_RUN_CASE(vsnip_jmp_near_rel_inclusive);
     UARF_TEST_RUN_CASE(vsnip_jmp_near_rel_exclusive);
     UARF_TEST_RUN_CASE(vsnip_fill);
+    UARF_TEST_RUN_CASE(psnip_c_src);
 
     return 0;
 }
