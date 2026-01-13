@@ -8,6 +8,7 @@
 #include "jita.h"
 #include "lib.h"
 #include "log.h"
+#include "mem.h"
 #include "psnip.h"
 #include "stub.h"
 #include "test.h"
@@ -78,6 +79,74 @@ UARF_TEST_CASE(local_jita) {
     UARF_TEST_ASSERT(var == 8);
 
     uarf_jita_deallocate(&ctxt, &local_stub);
+
+    UARF_TEST_PASS();
+}
+
+// Test that jitas can be allocated to pre-allocated memory
+UARF_TEST_CASE(prealloc) {
+
+    UarfJitaCtxt ctxt = uarf_jita_init();
+    UarfStub local_stub = uarf_stub_init();
+
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_ret_val);
+
+    uint64_t buf = _ul(uarf_alloc_random_page());
+    uarf_assert(buf);
+
+    local_stub.size = PAGE_SIZE;
+
+    // We can access the mapping
+    *(uint64_t *) buf = 5;
+
+    // We can allocate a jita on it
+    uarf_jita_allocate(&ctxt, &local_stub, buf + 123);
+
+    int (*a)(int) = (int (*)(int)) local_stub.ptr;
+    int var = a(5);
+
+    UARF_TEST_ASSERT(var == 8);
+
+    uarf_jita_deallocate(&ctxt, &local_stub);
+
+    UARF_TEST_PASS();
+}
+
+// Test allocations on pre-allocated memory
+UARF_TEST_CASE(fixed) {
+
+    UarfJitaCtxt ctxt = uarf_jita_init();
+    UarfStub local_stub = uarf_stub_init();
+
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_inc);
+    uarf_jita_push_psnip(&ctxt, &psnip_ret_val);
+
+    uint64_t buf = _ul(uarf_alloc_random_page());
+    uarf_assert(buf);
+
+    local_stub.size = PAGE_SIZE;
+    local_stub.is_fixed = true;
+
+    // We can access the mapping
+    *(uint64_t *) buf = 5;
+
+    // We can allocate a jita on it
+    uarf_jita_allocate(&ctxt, &local_stub, buf + 123);
+
+    int (*a)(int) = (int (*)(int)) local_stub.ptr;
+    int var = a(5);
+
+    UARF_TEST_ASSERT(var == 8);
+
+    uarf_jita_deallocate(&ctxt, &local_stub);
+
+    // We can still access the mapping
+    uarf_assert(*(uint64_t *) buf == 5);
 
     UARF_TEST_PASS();
 }
@@ -393,6 +462,8 @@ UARF_TEST_SUITE() {
     UARF_TEST_RUN_CASE(globally_allocated_jita);
     UARF_TEST_RUN_CASE(locally_allocated_jita);
     UARF_TEST_RUN_CASE(local_jita);
+    UARF_TEST_RUN_CASE(prealloc);
+    UARF_TEST_RUN_CASE(fixed);
     UARF_TEST_RUN_CASE(global_jita_clone_local);
     UARF_TEST_RUN_CASE(vsnip_dump_stub);
     UARF_TEST_RUN_CASE_ARG(vsnip_align, _ptr(1));

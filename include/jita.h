@@ -53,7 +53,8 @@ static __always_inline UarfJitaCtxt uarf_jita_init(void) {
  * @param stub pointer to stub with allocation
  * @param addr address of arbitrary alignment to allocate the context on
  *
- * @NOTE: The stub must not have been alocated previously
+ * @NOTE: The stub must not have been allocated previously
+ * @NOTE: The addr may already be allocate, in which case stub->size needs to be set
  */
 void uarf_jita_allocate(UarfJitaCtxt *ctxt, UarfStub *stub, uint64_t addr);
 

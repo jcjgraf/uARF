@@ -3,6 +3,7 @@
  */
 
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -32,6 +33,12 @@ struct UarfStub {
         char *end_ptr;
         uint64_t end_addr;
     };
+
+    // Whether the stub is allowed to grow if to small to fit jita
+    bool is_fixed;
+
+    // Whether this stub has some jita allocated to
+    bool is_jita_alloc;
 };
 
 /**

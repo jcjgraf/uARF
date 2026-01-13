@@ -54,6 +54,11 @@ void uarf_stub_extend(UarfStub *stub) {
     uarf_assert(stub->base_ptr <= stub->ptr);
     uarf_assert(stub->ptr <= stub->end_ptr);
 
+    if (stub->is_fixed) {
+        UARF_LOG_WARNING("Stub is fixed, but allocation run out of space.\n");
+        exit(1);
+    }
+
     uint64_t next_page = stub->base_addr + stub->size;
     UARF_LOG_DEBUG("Map one more page starting at 0x%lx\n", next_page);
     // vmap_kern_4k_or_die(_ptr(next_page), get_free_frame()->mfn, L1_PROT);
@@ -69,6 +74,11 @@ void uarf_stub_free(UarfStub *stub) {
     uarf_assert(stub->end_addr);
     uarf_assert(stub->base_ptr <= stub->ptr);
     uarf_assert(stub->ptr <= stub->end_ptr);
+
+    if (stub->is_fixed) {
+        UARF_LOG_DEBUG("Stub is fixed, not unmapping memory\n");
+        return;
+    }
 
     uint64_t current_page = stub->base_addr;
     size_t remaining_size = stub->size;

@@ -84,12 +84,15 @@ void uarf_jita_allocate(UarfJitaCtxt *ctxt, UarfStub *stub, uint64_t addr) {
     uarf_assert(addr);
 
     // Assert stub has not been allocated
-    uarf_assert(stub->size == 0);
+    uarf_assert(!stub->is_jita_alloc);
+
+    // is_fixed => size is set
+    uarf_assert(!stub->is_fixed || stub->size != 0);
 
     stub->base_addr = ALIGN_DOWN(addr, PAGE_SIZE);
-    stub->size = 0;
     stub->addr = addr;
     stub->end_addr = addr;
+    stub->is_jita_alloc = true;
 
     if (ctxt->n_snips == 0) {
         UARF_LOG_WARNING("No stubs have been added to the jita!\nIs this really "
