@@ -3,6 +3,7 @@
 #include "compiler.h"
 #include "kmod/pi.h"
 #include "kmod/rap.h"
+#include "page.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -27,6 +28,16 @@
 
 #define div_round_up(n, d) ((((n) + (d)) - 1) / (d))
 
+#define UARF_ROUND_DOWN(num, pagesize) ((_ul(num)) & (~((pagesize) - 1)))
+#define UARF_ROUND_UP(num, pagesize)   (((_ul(num)) + (pagesize) - 1) & (~((pagesize) - 1)))
+
+#define UARF_ROUND_DOWN_4K(num) UARF_ROUND_DOWN(num, PAGE_SIZE)
+#define UARF_ROUND_UP_4K(num)   UARF_ROUND_UP(num, PAGE_SIZE)
+
+#define UARF_ROUND_DOWN_2M(num) UARF_ROUND_DOWN(num, PAGE_SIZE_2M)
+#define UARF_ROUND_UP_2M(num)   UARF_ROUND_UP(num, PAGE_SIZE_2M)
+
+// Legacy, do not use
 #define ROUND_2MB_UP(x) (((x) + 0x1fffffUL) & ~0x1fffffUL)
 
 static __always_inline void uarf_sfence(void) {
