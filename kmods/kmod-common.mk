@@ -33,3 +33,7 @@ endif
 .PHONY: modules_install
 modules_install:
 	$(MAKE) -C $(KDIR_HOST) M=$(PWD) modules_install
+
+.PHONY: modules_uninstall
+modules_uninstall:
+	rmmod $(obj-m:.o=) || true

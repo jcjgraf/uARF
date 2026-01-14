@@ -35,3 +35,10 @@ modules_install: host
 	for m in $(MODULES); do \
 	    sudo $(MAKE) -C $$m host modules_install; \
 	done
+
+PHONY: modules_uninstall
+modules_uninstall:
+	@echo "Unloading kmods"
+	@for m in $(MODULES); do \
+	    sudo $(MAKE) -C $$m modules_uninstall; \
+	done

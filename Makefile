@@ -93,6 +93,11 @@ kmods_install:
 	@echo "Install kmods"
 	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) modules_install
 
+.PHONY: kmods_uninstall
+kmods_uninstall:
+	@echo "Uninstall kmods"
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) modules_uninstall
+
 # Install library
 .PHONY: install
 install: $(LIBRARY) uninstall
