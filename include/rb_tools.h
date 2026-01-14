@@ -114,9 +114,8 @@ static inline unsigned long get_ms(void) {
 static u8 *rb = (u8 *) RB_PTR;
 static u64 *rb_hist = (u64 *) RB_HIST;
 
-#define ROUND_2MB_UP(x) (((x) + 0x1fffffUL) & ~0x1fffffUL)
-#define RB_SZ           ROUND_2MB_UP((RB_SLOTS * RB_STRIDE) + 0x1000UL)
-#define MMAP_FLAGS      (MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE)
+#define RB_SZ      UARF_ROUND_UP_2M((RB_SLOTS * RB_STRIDE) + 0x1000UL)
+#define MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE)
 
 /* start measure */
 static __always_inline u64 rb_rdtsc(void) {

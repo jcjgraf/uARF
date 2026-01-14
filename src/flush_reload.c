@@ -80,7 +80,7 @@ UarfFrConfig uarf_fr_init(uint16_t num_slots, uint8_t num_bins, size_t *bin_map)
         .num_slots = num_slots,
         .num_bins = num_bins,
         .thresh = FR_THRESH,
-        .buf_size = ROUND_2MB_UP(num_slots * FR_STRIDE + 0x1000ul),
+        .buf_size = UARF_ROUND_UP_2M(num_slots * FR_STRIDE + 0x1000ul),
         .res_size = num_slots * num_bins * sizeof(uint32_t),
     };
 

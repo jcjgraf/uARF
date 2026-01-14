@@ -37,9 +37,6 @@
 #define UARF_ROUND_DOWN_2M(num) UARF_ROUND_DOWN(num, PAGE_SIZE_2M)
 #define UARF_ROUND_UP_2M(num)   UARF_ROUND_UP(num, PAGE_SIZE_2M)
 
-// Legacy, do not use
-#define ROUND_2MB_UP(x) (((x) + 0x1fffffUL) & ~0x1fffffUL)
-
 static __always_inline void uarf_sfence(void) {
     asm volatile("sfence" ::: "memory");
 }
