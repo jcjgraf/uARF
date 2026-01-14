@@ -41,7 +41,8 @@ TESTCASE_BIN := $(notdir $(TESTCASE)).bin
 TESTCASE_C := $(TESTCASE_BASE).c
 TESTCASE_H := $(wildcard $(TESTCASE_BASE).h)
 TESTCASE_ASM := $(wildcard $(TESTCASE_BASE)_asm.S)
-TESTCASE_OBJS := $(TESTCASE_C:%.c=%.o) $(TESTCASE_ASM:%.S=%.o)
+TESTCASE_32 := $(wildcard $(TESTCASE_BASE)_32.c)
+TESTCASE_OBJS := $(TESTCASE_C:%.c=%.o) $(TESTCASE_ASM:%.S=%.o) $(TESTCASE_32:%.c=%.o)
 endif
 
 ifneq ($(V), 1)
@@ -53,6 +54,12 @@ all: $(LIBRARY) kmods test
 $(LIBRARY): $(OBJS)
 	@echo "AR " $@
 	$(VERBOSE) $(AR) rcs $@ $^
+
+%_32.o: %_32.c
+	@echo "CC 32" $@
+	$(VERBOSE) $(CC) -m32 -c -o $@.tmp $(CFLAGS) -fno-stack-protector -fno-pic -ffreestanding $<
+	$(VERBOSE) objcopy -I elf32-i386 -O elf64-x86-64 $@.tmp $@
+	$(VERBOSE) rm $@.tmp
 
 %.o: %.S
 	@echo "AS " $@

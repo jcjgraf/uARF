@@ -44,7 +44,9 @@
     void __section(".text." #name) __attribute__((naked)) __used name##__snip_end_func(void) {  \
          asm volatile("nop");                                                                   \
     }                                                                                           \
-    asm(".set " STR(uarf_psnip_start(name)) ", " STR(name) "\n\t"                               \
+    asm(".globl " STR(uarf_psnip_start(name)) "\n\t"                                            \
+        ".set " STR(uarf_psnip_start(name)) ", " STR(name) "\n\t"                               \
+        ".globl " STR(uarf_psnip_end(name)) "\n\t"                                              \
         ".set " STR(uarf_psnip_end(name))   ", " STR(name##__snip_end_func) "\n\t")
 // clang-format on
 

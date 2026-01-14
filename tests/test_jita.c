@@ -425,16 +425,17 @@ UARF_TEST_CASE(vsnip_fill) {
     UARF_TEST_PASS();
 }
 
+/**
+ * Test how we can use C code as a snippet.
+ */
 uarf_psnip_c(jita_c_inc, int, (int a), { return a + 1; });
 uarf_psnip_declare(jita_c_inc, psnip_c_inc);
 
-// Test psnip_c_src
 UARF_TEST_CASE(psnip_c_src) {
     UarfJitaCtxt ctxt = uarf_jita_init();
     UarfStub local_stub = uarf_stub_init();
 
     uarf_jita_push_psnip(&ctxt, &psnip_c_inc);
-    uarf_jita_push_psnip(&ctxt, &psnip_ret_val);
 
     uarf_jita_allocate(&ctxt, &local_stub, uarf_rand47());
 
@@ -442,6 +443,34 @@ UARF_TEST_CASE(psnip_c_src) {
     int var = a(5);
 
     UARF_TEST_ASSERT(var == 6);
+
+    uarf_jita_deallocate(&ctxt, &local_stub);
+
+    UARF_TEST_PASS();
+}
+
+/**
+ * Test how we can compile and link 32b code into 64b
+ *
+ * The code is not necessarily executable, but in this case it is
+ */
+uarf_psnip_declare(my_func, psnip_my_func);
+
+UARF_TEST_CASE(psnip_c_src_32) {
+    UarfJitaCtxt ctxt = uarf_jita_init();
+    UarfStub local_stub = uarf_stub_init();
+
+    uarf_jita_push_psnip(&ctxt, &psnip_my_func);
+
+    printf("32b function at 0x%lx - 0x%lx long\n", psnip_my_func.addr,
+           psnip_my_func.end_addr);
+
+    uarf_jita_allocate(&ctxt, &local_stub, uarf_rand47());
+
+    int (*a)(int) = (int (*)(int)) local_stub.ptr;
+    int var = a(5);
+
+    UARF_TEST_ASSERT(var == 5);
 
     uarf_jita_deallocate(&ctxt, &local_stub);
 
@@ -477,6 +506,7 @@ UARF_TEST_SUITE() {
     UARF_TEST_RUN_CASE(vsnip_jmp_near_rel_exclusive);
     UARF_TEST_RUN_CASE(vsnip_fill);
     UARF_TEST_RUN_CASE(psnip_c_src);
+    UARF_TEST_RUN_CASE(psnip_c_src_32);
 
     return 0;
 }
