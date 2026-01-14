@@ -31,8 +31,7 @@ clean:
 
 .PHONY: modules_install
 modules_install: host
-	@echo "Installing kmods on host (stub)"
-	# Example: implement real install here if desired, e.g.:
+	@echo "Installing kmods on host"
 	for m in $(MODULES); do \
 	    sudo $(MAKE) -C $$m host modules_install; \
 	done

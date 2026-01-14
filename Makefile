@@ -91,7 +91,7 @@ kmods_clean:
 .PHONY: kmods_install
 kmods_install:
 	@echo "Install kmods"
-	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) install
+	$(VERBOSE) $(MAKE) -C $(uARF_KMOD) modules_install
 
 # Install library
 .PHONY: install

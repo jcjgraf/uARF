@@ -29,3 +29,7 @@ clean:
 ifneq ($(KDIR_GUEST),)
 	$(MAKE) -C $(KDIR_GUEST) M=$(PWD) clean
 endif
+
+.PHONY: modules_install
+modules_install:
+	$(MAKE) -C $(KDIR_HOST) M=$(PWD) modules_install
