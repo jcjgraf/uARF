@@ -96,6 +96,7 @@ void uarf_stub_free(UarfStub *stub) {
     stub->base_ptr = 0;
     stub->addr = 0;
     stub->end_addr = 0;
+    stub->is_jita_alloc = false;
 }
 
 uint64_t uarf_stub_size_free(UarfStub *stub) {
