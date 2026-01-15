@@ -288,7 +288,7 @@ UARF_TEST_CASE(vsnip_jmp_near_abs) {
     UarfStub target_stub = uarf_stub_init();
 
     uint64_t jmp_src_addr = uarf_rand47();
-    uint64_t jmp_target_addr = jmp_src_addr ^ (rand() & 0xFFFFFF);
+    uint64_t jmp_target_addr = jmp_src_addr + (rand() & 0xFFFFFF);
     UARF_TEST_ASSERT(ALIGN_DOWN(jmp_target_addr, PAGE_SIZE) >=
                      ALIGN_DOWN(jmp_src_addr, PAGE_SIZE));
 
