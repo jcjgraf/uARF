@@ -18,7 +18,14 @@
  * constant, signal.
  */
 
+#define FR_STATIC
+
+#ifdef FR_STATIC
+#include "flush_reload_static.h"
+#else
 #include "flush_reload.h"
+#endif
+
 #include "jita.h"
 #include "kmod/pi.h"
 #include "lib.h"
@@ -54,16 +61,24 @@ UARF_TEST_CASE_ARG(basic, arg) {
     struct TestCaseData *data = (struct TestCaseData *) arg;
     srand(data->seed);
 
+#ifdef FR_STATIC
+    uarf_frs_init();
+#else
     // struct FrConfig fr = fr_init(8, 6, (size_t[]){0, 1, 2, 3, 5, 10});
     UarfFrConfig fr = uarf_fr_init(8, 1, NULL);
+#endif
 
     UarfStub stub_main = uarf_stub_init();
     UarfStub stub_gadget = uarf_stub_init();
     UarfStub stub_dummy = uarf_stub_init();
 
-    uarf_ibpb();
+    uarf_ibpb_user();
 
+#ifdef FR_STATIC
+    uarf_frs_reset();
+#else
     uarf_fr_reset(&fr);
+#endif
 
     for (size_t c = 0; c < data->num_cands; c++) {
         uarf_jita_allocate(data->jita_main, &stub_main, uarf_rand47());
@@ -76,7 +91,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
         UarfSpecData train_data = {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_gadget.addr),
+#ifdef FR_STATIC
+            .fr_buf_p = UARF_FRS_BUF,
+#else
             .fr_buf_p = fr.buf2.addr,
+#endif
             .secret = 0,
             .hist = h1,
         };
@@ -84,7 +103,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
         UarfSpecData signal_data = {
             .spec_prim_p = stub_main.addr,
             .spec_dst_p_p = _ul(&stub_dummy.addr),
+#ifdef FR_STATIC
+            .fr_buf_p = UARF_FRS_BUF,
+#else
             .fr_buf_p = fr.buf.addr,
+#endif
             .secret = 1,
             .hist = h2,
         };
@@ -103,7 +126,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
 
             // uarf_assert(!mprotect(stub_gadget.base_ptr, stub_gadget.size, PROT_READ |
             // PROT_WRITE));
+#ifdef FR_STATIC
+            uarf_frs_flush();
+#else
             uarf_fr_flush(&fr);
+#endif
             uarf_clflush_spec_dst(&signal_data);
             // uarf_invlpg_spec_dst(&signal_data);
             uarf_prefetcht0(&train_data);
@@ -117,7 +144,11 @@ UARF_TEST_CASE_ARG(basic, arg) {
                          "c"(&signal_data)
                          : "rax", "rdx", "rdi", "rsi", "r8", "memory");
 
+#ifdef FR_STATIC
+            uarf_frs_reload();
+#else
             uarf_fr_reload_binned(&fr, r);
+#endif
             // uarf_assert(!mprotect(stub_gadget.base_ptr, stub_gadget.size, PROT_READ |
             // PROT_WRITE | PROT_EXEC));
         }
@@ -127,11 +158,20 @@ UARF_TEST_CASE_ARG(basic, arg) {
     }
 
     UARF_LOG_INFO("Fr Buffer\n");
+#ifdef FR_STATIC
+    uarf_frs_print();
+    uarf_frs_deinit();
+#else
     uarf_fr_print(&fr);
-
     uarf_fr_deinit(&fr);
+#endif
 
     UARF_TEST_PASS();
+}
+
+void print_access_times(void) {
+    printf("  Cached: %lu\n", uarf_get_access_time_cached(1000));
+    printf("Uncached: %lu\n", uarf_get_access_time_uncached(1000));
 }
 
 static struct TestCaseData data1;
@@ -143,6 +183,8 @@ UARF_TEST_SUITE() {
     uint32_t seed = uarf_get_seed();
     UARF_LOG_INFO("Using seed: %u\n", seed);
     uarf_pi_init();
+
+    print_access_times();
 
     UarfJitaCtxt jita_main_call = uarf_jita_init();
     UarfJitaCtxt jita_main_jmp = uarf_jita_init();
